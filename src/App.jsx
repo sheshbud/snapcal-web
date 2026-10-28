@@ -114,7 +114,7 @@ const STYLES = `
 .sc-msg p { color:var(--soft); font-size:14px; line-height:1.55; margin:0 0 24px; }
 
 .sc-caltop { display:flex; align-items:center; justify-content:space-between; margin-top:22px; }
-.sc-monthlabel { font-family:'Inter',system-ui,sans-serif; font-weight:700; font-size:21px; color:var(--navy); letter-spacing:-0.02em; }
+.sc-monthlabel { font-family:'Instrument Serif',Georgia,serif; font-weight:400; font-size:26px; color:var(--navy); letter-spacing:-0.005em; }
 .sc-navs { display:flex; gap:8px; align-items:center; }
 .sc-navbtn { width:38px; height:38px; border-radius:11px; border:1px solid var(--line); background:#fff; color:var(--navy); cursor:pointer; font-size:17px; display:flex; align-items:center; justify-content:center; }
 .sc-navbtn:hover { background:var(--tint); }
@@ -132,7 +132,7 @@ const STYLES = `
 .sc-dot { width:5px; height:5px; border-radius:50%; }
 .sc-day.sel .sc-dot { box-shadow:0 0 0 1.5px #fff; }
 
-.sc-agtitle { font-family:'Fraunces',Georgia,serif; font-weight:600; font-size:18px; color:var(--navy); margin:24px 2px 11px; }
+.sc-agtitle { font-family:'Instrument Serif',Georgia,serif; font-weight:400; font-size:23px; color:var(--navy); margin:24px 2px 11px; letter-spacing:-0.005em; }
 .sc-ev { display:flex; align-items:stretch; gap:11px; background:var(--card); border:1px solid var(--line); border-radius:13px; padding:11px 13px; margin-bottom:8px; width:100%; text-align:left; box-shadow:0 2px 8px rgba(120,92,52,.05); }
 .sc-ev.tap { cursor:pointer; }
 .sc-ev.tap:hover { border-color:#C7D4F0; box-shadow:0 4px 12px rgba(120,92,52,.10); }
