@@ -77,6 +77,11 @@ const STYLES = `
 .sc-ctl { flex:1 1 150px; min-width:0; display:flex; flex-direction:column; gap:5px; }
 .sc-ctl .sc-pick, .sc-ctl input.sc-pick { width:100%; box-sizing:border-box; }
 .sc-ctllabel { font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--soft); }
+.sc-tally { font-size:13px; color:var(--ink); font-weight:600; margin:0 2px 10px; }
+/* iOS zooms any focused input under 16px, which shoves the layout. */
+@media (max-width: 520px) {
+  .sc-field, .sc-finput, .sc-pick, .sc-title { font-size:16px; }
+}
 .sc-pick { font-family:'Inter'; font-weight:600; font-size:13px; border:1px solid var(--line); border-radius:10px; padding:9px 11px; background:#fff; color:var(--ink); outline:none; }
 .sc-pick:focus { border-color:var(--primary); }
 
@@ -635,6 +640,21 @@ export default function App() {
     const seen = new Set(draft.map((d) => d.type));
     return categories.filter((c) => seen.has(c.key));
   })();
+  // "12 assignments, 6 readings, 4 exams" so the count is checkable at a glance.
+  const draftSummary = (() => {
+    const on = draft.filter((d) => d.on);
+    if (!on.length) return "";
+    const counts = new Map();
+    on.forEach((d) => counts.set(d.type, (counts.get(d.type) || 0) + 1));
+    return categories
+      .filter((c) => counts.has(c.key))
+      .map((c) => {
+        const k = counts.get(c.key);
+        const label = (c.label || "untitled").toLowerCase();
+        return `${k} ${k === 1 || /s$/.test(label) ? label : label + "s"}`;
+      })
+      .join(", ");
+  })();
   const catColor = (key) => {
     const c = categories.find((x) => x.key === key);
     return (c && c.color) || DEFAULT_TYPE_COLORS[key] || "";
@@ -887,6 +907,7 @@ export default function App() {
               <span className="sc-count">{onCount}/{draft.length} selected</span>
             </div>
             <p className="sc-hint" style={{ margin: "7px 2px 12px" }}>Check the dates, fix anything, then add.</p>
+            {draftSummary && <div className="sc-tally">Found {draftSummary}.</div>}
             {draftCats.length > 0 && (
               <div className="sc-legend compact">
                 {draftCats.map((c) => (
