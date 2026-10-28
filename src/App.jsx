@@ -371,6 +371,7 @@ export default function App() {
   const [catEdit, setCatEdit] = useState(null);
   const [dragCat, setDragCat] = useState(null);
   const [pasteOpen, setPasteOpen] = useState(false);
+  const [editCalName, setEditCalName] = useState("");
   const [pasteVal, setPasteVal] = useState("");
   const consentIntent = useRef("scan");
   const dragInfo = useRef(null);
@@ -688,11 +689,18 @@ export default function App() {
   function startRename(c) { setRenameId(c.id); setRenameVal(c.name); }
   function saveRename() { const n = renameVal.trim(); if (n) setCalendars((p) => p.map((c) => (c.id === renameId ? { ...c, name: n.slice(0, 40) } : c))); setRenameId(null); setRenameVal(""); }
 
-  function openEdit(e) { setEditing({ ...e, color: evColor(e), remind: e.remind || "" }); }
-  function openNew() { setEditing({ id: "e_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), title: "", date: selected || TODAY, time: "", type: "event", color: DEFAULT_TYPE_COLORS.event, notes: "", remind: bulkRemind, calId: calendars[0].id, __new: true }); }
+  function openEdit(e) { setEditCalName(""); setEditing({ ...e, color: evColor(e), remind: e.remind || "" }); }
+  function openNew() { setEditCalName(""); setEditing({ id: "e_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), title: "", date: selected || TODAY, time: "", type: "event", color: DEFAULT_TYPE_COLORS.event, notes: "", remind: bulkRemind, calId: calendars[0].id, __new: true }); }
   function saveEdit() {
     if (!editing.title.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(editing.date)) return;
     const { __new, ...ev } = editing;
+    if (ev.calId === "__new__") {
+      const id = "c_" + Date.now();
+      const name = editCalName.trim() || "Untitled";
+      setCalendars((p) => [...p, { id, name, color: CAL_COLORS[p.length % CAL_COLORS.length], visible: true }]);
+      ev.calId = id;
+      setEditCalName("");
+    }
     if (__new) {
       ev.id = hashId(ev.title, ev.date, ev.time);
       setEvents((p) => (p.some((x) => x.id === ev.id) ? p.map((x) => (x.id === ev.id ? ev : x)) : [...p, ev]));
@@ -1228,8 +1236,15 @@ export default function App() {
             </div>
             <div className="sc-frow">
               <div><label className="sc-flabel">Color</label><label className="sc-colorbig" style={{ background: editing.color }}><input type="color" value={editing.color} onChange={(e) => setEditing({ ...editing, color: e.target.value })} /></label></div>
-              <div><label className="sc-flabel">Calendar</label><select className="sc-finput" value={editing.calId} onChange={(e) => setEditing({ ...editing, calId: e.target.value })}>{calendars.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+              <div><label className="sc-flabel">Calendar</label><select className="sc-finput" value={editing.calId} onChange={(e) => setEditing({ ...editing, calId: e.target.value })}>{calendars.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}<option value="__new__">+ New calendar</option></select></div>
             </div>
+            {editing.calId === "__new__" && (
+              <>
+                <label className="sc-flabel">New calendar name</label>
+                <input className="sc-finput" value={editCalName} autoFocus placeholder="e.g. Work, Clinicals, Personal"
+                  onChange={(e) => setEditCalName(e.target.value)} />
+              </>
+            )}
             <label className="sc-flabel">Type</label>
             <select className="sc-finput" value={editing.type || "other"} onChange={(e) => {
               const nextType = e.target.value;
