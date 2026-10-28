@@ -126,6 +126,10 @@ const STYLES = `
 .sc-emptybig { text-align:center; color:var(--soft); font-size:13.5px; line-height:1.55; padding:28px 14px; border:1px dashed var(--line); border-radius:16px; background:#fff; }
 
 .sc-section { font-family:'Fraunces',Georgia,serif; font-weight:600; font-size:18px; color:var(--navy); margin:22px 2px 11px; }
+.sc-legend { display:flex; flex-wrap:wrap; gap:8px 14px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 15px; box-shadow:0 2px 8px rgba(120,92,52,.05); }
+.sc-legitem { display:inline-flex; align-items:center; gap:7px; font-size:13px; color:var(--ink); font-weight:500; }
+.sc-legdot { width:10px; height:10px; border-radius:50%; flex:none; }
+.sc-legnote { font-size:12px; color:var(--soft); margin:9px 2px 0; }
 .sc-calrow { display:flex; align-items:center; gap:11px; background:var(--card); border:1px solid var(--line); border-radius:13px; padding:11px 13px; margin-bottom:8px; box-shadow:0 2px 8px rgba(120,92,52,.05); }
 .sc-calrow.hidden { opacity:.5; }
 .sc-swatch { width:14px; height:14px; border-radius:5px; flex:none; }
@@ -701,6 +705,13 @@ export default function App() {
 
         {stage === "home" && tab === "organize" && (
           <>
+            <div className="sc-section">Color key</div>
+            <div className="sc-legend">
+              {TYPES.map((t) => (
+                <span className="sc-legitem" key={t}><span className="sc-legdot" style={{ background: DEFAULT_TYPE_COLORS[t] }} />{TYPE_LABELS[t]}</span>
+              ))}
+            </div>
+            <div className="sc-legnote">Default colors by type. Tap any event to recolor it.</div>
             <div className="sc-section">Your calendars</div>
             {calendars.map((c) => {
               const count = events.filter((e) => e.calId === c.id).length;
