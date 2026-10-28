@@ -69,6 +69,14 @@ const STYLES = `
 .sc-count { font-family:'Inter',sans-serif; font-size:13px; color:var(--primary); font-weight:600; font-variant-numeric:tabular-nums; }
 .sc-hint { margin:9px 2px 14px; font-size:13.5px; color:var(--soft); line-height:1.55; }
 .sc-pickwrap { display:flex; align-items:center; gap:9px; margin:2px 2px 10px; font-size:13px; color:var(--soft); flex-wrap:wrap; }
+.sc-legend.compact { padding:10px 12px; gap:7px 12px; margin:0 2px 12px; }
+.sc-legend.compact .sc-legitem { font-size:12.5px; cursor:default; touch-action:auto; padding:0; margin:0; border:none; }
+.sc-legend.compact .sc-legitem:hover { background:none; border-color:transparent; }
+.sc-legend.compact .sc-legdot { width:9px; height:9px; }
+.sc-ctls { display:flex; gap:10px; margin:0 2px 16px; flex-wrap:wrap; }
+.sc-ctl { flex:1 1 150px; min-width:0; display:flex; flex-direction:column; gap:5px; }
+.sc-ctl .sc-pick, .sc-ctl input.sc-pick { width:100%; box-sizing:border-box; }
+.sc-ctllabel { font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--soft); }
 .sc-pick { font-family:'Inter'; font-weight:600; font-size:13px; border:1px solid var(--line); border-radius:10px; padding:9px 11px; background:#fff; color:var(--ink); outline:none; }
 .sc-pick:focus { border-color:var(--primary); }
 
@@ -622,6 +630,11 @@ export default function App() {
   const cells = monthMatrix(cursor.y, cursor.m);
   const palette = [...CAL_COLORS, ...customColors];
   const visibleCats = categories.filter((c) => !c.hidden);
+  // Only key the colours actually on screen, so the legend stays short.
+  const draftCats = (() => {
+    const seen = new Set(draft.map((d) => d.type));
+    return categories.filter((c) => seen.has(c.key));
+  })();
   const catColor = (key) => {
     const c = categories.find((x) => x.key === key);
     return (c && c.color) || DEFAULT_TYPE_COLORS[key] || "";
@@ -873,20 +886,33 @@ export default function App() {
               <h2>Confirm your dates</h2>
               <span className="sc-count">{onCount}/{draft.length} selected</span>
             </div>
-            <p className="sc-hint">Edit the name or tap the color dot to change it. Fix anything off, then add. You can tap into any event later to change its date or reminder too.</p>
-            <div className="sc-pickwrap">
-              <span>Add to</span>
-              <select className="sc-pick" value={targetCal} onChange={(e) => setTargetCal(e.target.value)}>
-                <option value="__new__">{suggestName ? `New: ${suggestName}` : "New calendar"}</option>
-                {calendars.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-              <span>Remind</span>
-              <select className="sc-pick" value={bulkRemind} onChange={(e) => setAllRemind(e.target.value)}>{REMINDERS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+            <p className="sc-hint" style={{ margin: "7px 2px 12px" }}>Check the dates, fix anything, then add.</p>
+            {draftCats.length > 0 && (
+              <div className="sc-legend compact">
+                {draftCats.map((c) => (
+                  <span className="sc-legitem" key={c.key}><span className="sc-legdot" style={{ background: c.color }} />{c.label || "Untitled"}</span>
+                ))}
+              </div>
+            )}
+            <div className="sc-ctls">
+              <div className="sc-ctl">
+                <label className="sc-ctllabel">Add to</label>
+                <select className="sc-pick" value={targetCal} onChange={(e) => setTargetCal(e.target.value)}>
+                  <option value="__new__">{suggestName ? `New: ${suggestName}` : "New calendar"}</option>
+                  {calendars.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="sc-ctl">
+                <label className="sc-ctllabel">Remind</label>
+                <select className="sc-pick" value={bulkRemind} onChange={(e) => setAllRemind(e.target.value)}>{REMINDERS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+              </div>
             </div>
             {targetCal === "__new__" && (
-              <div className="sc-pickwrap">
-                <span>Name</span>
-                <input className="sc-pick" style={{ flex: 1, minWidth: 0 }} value={suggestName} onChange={(e) => setSuggestName(e.target.value)} placeholder="New calendar name" />
+              <div className="sc-ctls">
+                <div className="sc-ctl">
+                  <label className="sc-ctllabel">Calendar name</label>
+                  <input className="sc-pick" value={suggestName} onChange={(e) => setSuggestName(e.target.value)} placeholder="New calendar name" />
+                </div>
               </div>
             )}
             {draft.map((e, i) => (
