@@ -217,6 +217,9 @@ const STYLES = `
 .sc-colorbig { display:inline-flex; width:48px; height:48px; border-radius:12px; cursor:pointer; position:relative; overflow:hidden; border:1px solid rgba(0,0,0,.10); }
 .sc-colorbig input { position:absolute; inset:-8px; opacity:0; cursor:pointer; }
 .sc-modalactions { display:flex; gap:10px; margin-top:22px; }
+.sc-exportrow { display:flex; gap:9px; flex-wrap:wrap; margin-top:6px; }
+.sc-exportbtn { flex:1 1 140px; border:1px solid var(--line); background:var(--tint); color:var(--ink); font-weight:600; font-size:13.5px; border-radius:12px; padding:11px 12px; cursor:pointer; font-family:'Inter'; }
+.sc-exportbtn:hover { background:#fff; border-color:var(--accent); }
 .sc-delbtn { border:1px solid #F3C9CF; background:#FFF5F6; color:#D23B4E; font-weight:600; border-radius:14px; padding:14px 18px; cursor:pointer; font-family:'Inter'; font-size:15px; }
 .sc-delbtn:hover { background:#FCEBED; }
 
@@ -410,6 +413,7 @@ export default function App() {
   const [dragOver, setDragOver] = useState(false);
   const gBtnRef = useRef(null);
   const [pending, setPending] = useState(null);
+  const [pendingMode, setPendingMode] = useState("new");
   const [suggestName, setSuggestName] = useState("");
   const [renameId, setRenameId] = useState(null);
   const [renameVal, setRenameVal] = useState("");
@@ -655,6 +659,11 @@ export default function App() {
   }
 
   function chooserKeep() { setPending(null); }
+  function exportCalendar(calId) {
+    const list = events.filter((e) => e.calId === calId);
+    if (!list.length) return;
+    setPendingMode("export"); setPending(list);
+  }
   function chooserSend() { downloadICS(pending); setPending(null); }
 
   // Validate events client-side before they ever leave for a calendar write.
@@ -1003,6 +1012,7 @@ export default function App() {
                   )}
                   <span className="sc-calcount">{count}</span>
                   <button className="sc-iconbtn" onClick={() => startRename(c)} aria-label="Rename"><Pencil /></button>
+                  {count > 0 && <button className="sc-iconbtn" onClick={() => exportCalendar(c.id)} aria-label="Send to a calendar" title="Send to a calendar"><DownIcon width={16} height={16} /></button>}
                   <button className="sc-iconbtn" onClick={() => toggleCal(c.id)} aria-label="Show or hide"><Eye on={c.visible} /></button>
                   {calendars.length > 1 && <button className="sc-iconbtn sc-calx" onClick={() => removeCal(c.id)} aria-label="Disconnect"><X /></button>}
                 </div>
@@ -1181,13 +1191,13 @@ export default function App() {
       {pending && (
         <div className="sc-modal" onClick={chooserKeep}>
           <div className="sc-modalcard sc-choose" onClick={(e) => e.stopPropagation()}>
-            <h3>You're all set</h3>
+            <h3>{pendingMode === "export" ? "Send these dates" : "You're all set"}</h3>
             <p>{pending.length} {pending.length === 1 ? "date" : "dates"} ready. Where do you want them?</p>
             <button className="sc-btn" onClick={chooserSend}>Send to Apple, Outlook, or other</button>
             <div className="sc-chooselbl">Downloads a calendar file you open once.</div>
             {GOOGLE_CLIENT_ID && <button className="sc-btn ghost" onClick={() => { const list = pending; setPending(null); startGoogleAdd(list); }} style={{ marginTop: 14 }}>Add to Google Calendar</button>}
             {GOOGLE_CLIENT_ID && <div className="sc-chooselbl">Sends them straight to your Google Calendar.</div>}
-            <button className="sc-btn ghost" onClick={chooserKeep} style={{ marginTop: 14 }}>Just keep them in Sylla</button>
+            <button className="sc-btn ghost" onClick={chooserKeep} style={{ marginTop: 14 }}>{pendingMode === "export" ? "Cancel" : "Just keep them in Sylla"}</button>
             <div className="sc-choosesub">No account needed, any option.</div>
           </div>
         </div>
@@ -1326,6 +1336,17 @@ export default function App() {
               {remindList(editing.remind).length > 0 && <option value="__none__">Clear all reminders</option>}
               {REMINDERS.filter(([v]) => v !== "" && !remindList(editing.remind).includes(v)).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
+            {!editing.__new && (
+              <>
+                <label className="sc-flabel" style={{ marginTop: 16 }}>Send this event to a calendar</label>
+                <div className="sc-exportrow">
+                  <button className="sc-exportbtn" onClick={() => downloadICS([editing])}>Apple, Outlook, other</button>
+                  {GOOGLE_CLIENT_ID && (
+                    <button className="sc-exportbtn" onClick={() => { const one = [editing]; setEditing(null); startGoogleAdd(one); }}>Google Calendar</button>
+                  )}
+                </div>
+              </>
+            )}
             <div className="sc-modalactions">
               {!editing.__new && <button className="sc-delbtn" onClick={deleteEvent}>Delete</button>}
               <button className="sc-btn" onClick={saveEdit}>{editing.__new ? "Add event" : "Save changes"}</button>
