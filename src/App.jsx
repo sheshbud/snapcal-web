@@ -223,6 +223,9 @@ const STYLES = `
 .sc-exportrow { display:flex; gap:9px; flex-wrap:wrap; margin-top:6px; }
 .sc-exportbtn { flex:1 1 140px; border:1px solid var(--line); background:var(--tint); color:var(--ink); font-weight:600; font-size:13.5px; border-radius:12px; padding:11px 12px; cursor:pointer; font-family:'Inter'; }
 .sc-exportbtn:hover { background:#fff; border-color:var(--accent); }
+.sc-exportbtn:disabled, .sc-btn:disabled { opacity:.5; cursor:default; }
+.sc-exportbtn:disabled:hover { background:var(--tint); border-color:var(--line); }
+.sc-soon { display:inline-block; margin-left:7px; font-size:10.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--soft); border:1px solid var(--line); border-radius:6px; padding:2px 6px; vertical-align:middle; }
 .sc-delbtn { border:1px solid #F3C9CF; background:#FFF5F6; color:#D23B4E; font-weight:600; border-radius:14px; padding:14px 18px; cursor:pointer; font-family:'Inter'; font-size:15px; }
 .sc-delbtn:hover { background:#FCEBED; }
 
@@ -276,6 +279,9 @@ const STORE_KEY = "snapcal:v3";
 const GCAL_URL = import.meta.env.VITE_GCAL_URL || "/api/gcal";
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 const EVENTS_URL = import.meta.env.VITE_EVENTS_URL || "";
+// Google OAuth is unverified, so it 403s for anyone who is not a listed test
+// user. Set VITE_GOOGLE_READY=1 to switch the buttons on once verified.
+const GOOGLE_LIVE = import.meta.env.VITE_GOOGLE_READY === "1";
 
 
 const PROMPT = `Look at this document (a schedule, calendar, syllabus, or similar). Do not transcribe the body text. Do two jobs:
@@ -1293,8 +1299,17 @@ export default function App() {
             </p>
             <button className="sc-btn" onClick={chooserSend}>Send to Apple, Outlook, or other</button>
             <div className="sc-chooselbl">Downloads a calendar file you open once.</div>
-            {GOOGLE_CLIENT_ID && <button className="sc-btn ghost" onClick={() => { const list = pending; setPending(null); startGoogleAdd(list); }} style={{ marginTop: 14 }}>Add to Google Calendar</button>}
-            {GOOGLE_CLIENT_ID && <div className="sc-chooselbl">Sends them straight to your Google Calendar.</div>}
+            {GOOGLE_CLIENT_ID && (
+              <button
+                className="sc-btn ghost"
+                style={{ marginTop: 14 }}
+                disabled={!GOOGLE_LIVE}
+                onClick={GOOGLE_LIVE ? () => { const list = pending; setPending(null); startGoogleAdd(list); } : undefined}
+              >
+                Add to Google Calendar{!GOOGLE_LIVE && <span className="sc-soon">Coming soon</span>}
+              </button>
+            )}
+            {GOOGLE_CLIENT_ID && <div className="sc-chooselbl">{GOOGLE_LIVE ? "Sends them straight to your Google Calendar." : "Google sync is in review. Use the option above for now."}</div>}
             <button className="sc-btn ghost" onClick={chooserKeep} style={{ marginTop: 14 }}>{pendingMode === "export" ? "Cancel" : "No thanks, just Sylla"}</button>
             <div className="sc-choosesub">{pendingMode === "export" ? "No account needed, any option." : "They stay in Sylla either way."}</div>
           </div>
@@ -1308,7 +1323,7 @@ export default function App() {
             <button className="sc-menuitem" onClick={() => { setMenuOpen(false); setTab("snap"); setStage("home"); }}><CamIcon style={{ width: 20, height: 20 }} /> Snap a schedule</button>
             <button className="sc-menuitem" onClick={() => { setMenuOpen(false); setTab("calendar"); setStage("home"); openNew(); }}><Pencil style={{ width: 20, height: 20 }} /> Add an event manually</button>
             <button className="sc-menuitem" onClick={() => { setMenuOpen(false); downloadICS(visEvents); }}><DownIcon /> Send all to my calendar (.ics)</button>
-            {GOOGLE_CLIENT_ID && EVENTS_URL && (
+            {GOOGLE_CLIENT_ID && GOOGLE_LIVE && EVENTS_URL && (
               idToken ? (
                 <div style={{ padding: "12px 10px", fontSize: 13 }}>
                   <div style={{ color: "var(--soft)", fontSize: 12 }}>Synced as</div>
@@ -1440,7 +1455,13 @@ export default function App() {
                 <div className="sc-exportrow">
                   <button className="sc-exportbtn" onClick={() => downloadICS([editing])}>Apple, Outlook, other</button>
                   {GOOGLE_CLIENT_ID && (
-                    <button className="sc-exportbtn" onClick={() => { const one = [editing]; setEditing(null); startGoogleAdd(one); }}>Google Calendar</button>
+                    <button
+                      className="sc-exportbtn"
+                      disabled={!GOOGLE_LIVE}
+                      onClick={GOOGLE_LIVE ? () => { const one = [editing]; setEditing(null); startGoogleAdd(one); } : undefined}
+                    >
+                      Google Calendar{!GOOGLE_LIVE && <span className="sc-soon">Soon</span>}
+                    </button>
                   )}
                 </div>
               </>
