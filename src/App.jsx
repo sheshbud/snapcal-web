@@ -620,6 +620,16 @@ export default function App() {
   const cells = monthMatrix(cursor.y, cursor.m);
   const palette = [...CAL_COLORS, ...customColors];
   const visibleCats = categories.filter((c) => !c.hidden);
+  const catColor = (key) => {
+    const c = categories.find((x) => x.key === key);
+    return (c && c.color) || DEFAULT_TYPE_COLORS[key] || "";
+  };
+  // "Uncustomised" means the event still carries the colour its type gives it,
+  // either the current category colour or the original built-in default.
+  const isDefaultColor = (color, key) => {
+    const cur = (color || "").toLowerCase();
+    return cur === catColor(key).toLowerCase() || cur === (DEFAULT_TYPE_COLORS[key] || "").toLowerCase();
+  };
 
   function saveCat(next) {
     setCategories((prev) => (prev.some((c) => c.key === next.key) ? prev.map((c) => (c.key === next.key ? next : c)) : [...prev, next]));
@@ -991,7 +1001,11 @@ export default function App() {
               <div><label className="sc-flabel">Calendar</label><select className="sc-finput" value={editing.calId} onChange={(e) => setEditing({ ...editing, calId: e.target.value })}>{calendars.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
             </div>
             <label className="sc-flabel">Type</label>
-            <select className="sc-finput" value={editing.type || "other"} onChange={(e) => setEditing({ ...editing, type: e.target.value })}>
+            <select className="sc-finput" value={editing.type || "other"} onChange={(e) => {
+              const nextType = e.target.value;
+              const keepColor = !isDefaultColor(editing.color, editing.type || "other");
+              setEditing({ ...editing, type: nextType, color: keepColor ? editing.color : catColor(nextType) });
+            }}>
               {visibleCats.map((c) => <option key={c.key} value={c.key}>{c.label || "Untitled"}</option>)}
             </select>
             <label className="sc-flabel">Reminder</label>
