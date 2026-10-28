@@ -1285,14 +1285,18 @@ export default function App() {
       {pending && (
         <div className="sc-modal" onClick={chooserKeep}>
           <div className="sc-modalcard sc-choose" onClick={(e) => e.stopPropagation()}>
-            <h3>{pendingMode === "export" ? "Send these dates" : "You're all set"}</h3>
-            <p>{pending.length} {pending.length === 1 ? "date" : "dates"} ready. Where do you want them?</p>
+            <h3>{pendingMode === "export" ? "Send these dates" : "Saved to Sylla"}</h3>
+            <p>
+              {pendingMode === "export"
+                ? `${pending.length} ${pending.length === 1 ? "date is" : "dates are"} ready to send. Where to?`
+                : `${pending.length} ${pending.length === 1 ? "date is" : "dates are"} in your calendar. Want them anywhere else too?`}
+            </p>
             <button className="sc-btn" onClick={chooserSend}>Send to Apple, Outlook, or other</button>
             <div className="sc-chooselbl">Downloads a calendar file you open once.</div>
             {GOOGLE_CLIENT_ID && <button className="sc-btn ghost" onClick={() => { const list = pending; setPending(null); startGoogleAdd(list); }} style={{ marginTop: 14 }}>Add to Google Calendar</button>}
             {GOOGLE_CLIENT_ID && <div className="sc-chooselbl">Sends them straight to your Google Calendar.</div>}
-            <button className="sc-btn ghost" onClick={chooserKeep} style={{ marginTop: 14 }}>{pendingMode === "export" ? "Cancel" : "Just keep them in Sylla"}</button>
-            <div className="sc-choosesub">No account needed, any option.</div>
+            <button className="sc-btn ghost" onClick={chooserKeep} style={{ marginTop: 14 }}>{pendingMode === "export" ? "Cancel" : "No thanks, just Sylla"}</button>
+            <div className="sc-choosesub">{pendingMode === "export" ? "No account needed, any option." : "They stay in Sylla either way."}</div>
           </div>
         </div>
       )}
