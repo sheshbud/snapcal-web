@@ -232,8 +232,22 @@ const TYPE_LABELS = { assignment:"Assignment", exam:"Exam / test", quiz:"Quiz", 
 const TYPES = Object.keys(DEFAULT_TYPE_COLORS);
 const seedCategories = () => TYPES.map((k) => ({ key: k, label: TYPE_LABELS[k], color: DEFAULT_TYPE_COLORS[k], builtin: true, hidden: false }));
 const CAL_COLORS = ["#1E3A78","#2F62F0","#198A5E","#D8364A","#8A52C0","#C0820F","#0E8C93","#D8569E"];
-const REMINDERS = [["", "No reminder"], ["0", "At time of event"], ["60", "1 hour before"], ["1440", "1 day before"], ["10080", "1 week before"]];
-const remindShort = (v) => ({ "0": "At time", "60": "1 hr", "1440": "1 day", "10080": "1 wk" }[v] || "");
+const REMINDERS = [
+  ["", "No reminder"], ["0", "At time of event"],
+  ["5", "5 minutes before"], ["10", "10 minutes before"], ["15", "15 minutes before"], ["30", "30 minutes before"],
+  ["60", "1 hour before"], ["120", "2 hours before"], ["180", "3 hours before"], ["360", "6 hours before"], ["720", "12 hours before"],
+  ["1440", "1 day before"], ["2880", "2 days before"], ["4320", "3 days before"],
+  ["10080", "1 week before"], ["20160", "2 weeks before"],
+];
+const remindShort = (v) => {
+  const m = Number(v);
+  if (v === "" || v === null || v === undefined || Number.isNaN(m)) return "";
+  if (m === 0) return "At time";
+  if (m < 60) return m + " min";
+  if (m < 1440) return (m / 60) + " hr";
+  if (m < 10080) return (m / 1440) + " day";
+  return (m / 10080) + " wk";
+};
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const WD = ["S","M","T","W","T","F","S"];
 const TODAY = new Date().toISOString().slice(0, 10);
