@@ -348,6 +348,59 @@ function buildICS(events) {
   lines.push("END:VCALENDAR");
   return lines.join("\r\n");
 }
+// A .docx is a zip; word/document.xml holds the text. Read it with the
+// browser's own inflate rather than pulling in a zip library.
+async function docxToText(file) {
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const dv = new DataView(buf.buffer);
+  // locate End Of Central Directory (signature 0x06054b50), scanning back
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= 0 && i > buf.length - 66000; i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error("Not a valid .docx");
+  const count = dv.getUint16(eocd + 10, true);
+  let off = dv.getUint32(eocd + 16, true);
+  const dec = new TextDecoder();
+  for (let i = 0; i < count; i++) {
+    if (dv.getUint32(off, true) !== 0x02014b50) break;
+    const method = dv.getUint16(off + 10, true);
+    const csize = dv.getUint32(off + 20, true);
+    const nlen = dv.getUint16(off + 28, true);
+    const elen = dv.getUint16(off + 30, true);
+    const clen = dv.getUint16(off + 32, true);
+    const lho = dv.getUint32(off + 42, true);
+    const name = dec.decode(buf.subarray(off + 46, off + 46 + nlen));
+    if (name === "word/document.xml") {
+      const ln = dv.getUint16(lho + 26, true);
+      const le = dv.getUint16(lho + 28, true);
+      const start = lho + 30 + ln + le;
+      const raw = buf.subarray(start, start + csize);
+      let xmlBytes;
+      if (method === 0) xmlBytes = raw;
+      else {
+        if (typeof DecompressionStream === "undefined") throw new Error("This browser can't open .docx");
+        const ds = new DecompressionStream("deflate-raw");
+        const stream = new Blob([raw]).stream().pipeThrough(ds);
+        xmlBytes = new Uint8Array(await new Response(stream).arrayBuffer());
+      }
+      const xml = dec.decode(xmlBytes);
+      return xml
+        .replace(/<w:br[^>]*\/?>/g, "\n")
+        .replace(/<w:tab[^>]*\/?>/g, "\t")
+        .replace(/<\/w:p>/g, "\n")
+        .replace(/<[^>]+>/g, "")
+        .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+        .replace(/&amp;/g, "&")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+    }
+    off += 46 + nlen + elen + clen;
+  }
+  throw new Error("No document text found in that .docx");
+}
+
 function downloadICS(list) {
   if (!list || !list.length) return;
   const blob = new Blob([buildICS(list)], { type: "text/calendar" });
@@ -600,14 +653,22 @@ export default function App() {
     const isPdf = file.type === "application/pdf";
     const isImage = (file.type || "").startsWith("image/");
     const isTextFile = file.type === "text/plain" || /\.(txt|md|markdown)$/.test(name);
-    if (!isPdf && !isImage && !isTextFile) {
+    const isDocx = /\.docx$/.test(name) || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    if (!isPdf && !isImage && !isTextFile && !isDocx) {
       setStage("error");
-      setErrMsg("That's not a photo, PDF, or text file. Drop an image, a PDF, or a .txt of your schedule.");
+      setErrMsg("That's not a photo, PDF, Word, or text file. Drop an image, a PDF, a .docx, or a .txt of your schedule.");
       return;
     }
-    if (isTextFile) {
+    if (isTextFile || isDocx) {
       let txt = "";
-      try { txt = await file.text(); } catch (e) { txt = ""; }
+      setStage("reading");
+      try { txt = isDocx ? await docxToText(file) : await file.text(); }
+      catch (e) {
+        setStage("error");
+        setErrMsg((e && e.message) || "Couldn't read that file.");
+        if (fileRef.current) fileRef.current.value = "";
+        return;
+      }
       if (!txt.trim()) {
         setStage("error"); setErrMsg("That file looks empty.");
         if (fileRef.current) fileRef.current.value = "";
@@ -924,7 +985,7 @@ export default function App() {
           <div className="sc-topbar"><span className="sc-topword"><span className="hl">Syl</span>la</span></div>
         )}
 
-        <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={onFile} style={{ display: "none" }} />
+        <input ref={fileRef} type="file" accept="image/*,application/pdf,.docx,.txt,.md,text/plain" onChange={onFile} style={{ display: "none" }} />
 
         {stage === "home" && tab === "snap" && (
           <>
@@ -960,7 +1021,7 @@ export default function App() {
                 if (!consented) { consentIntent.current = "paste"; setConsentOpen(true); return; }
                 setPasteOpen(true);
               }}>Paste text instead</button>
-              <div className="sy-drop-hint">or drag a photo, PDF, or .txt here</div>
+              <div className="sy-drop-hint">or drag a photo, PDF, Word doc, or .txt here</div>
               <div className="sc-reassure">You'll confirm every date before anything is added.</div>
             </div>
             <div className="sy-how">
