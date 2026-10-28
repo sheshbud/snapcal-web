@@ -70,8 +70,8 @@ const STYLES = `
 .sc-hint { margin:9px 2px 14px; font-size:13.5px; color:var(--soft); line-height:1.55; }
 .sc-pickwrap { display:flex; align-items:center; gap:9px; margin:2px 2px 10px; font-size:13px; color:var(--soft); flex-wrap:wrap; }
 .sc-legend.compact { padding:10px 12px; gap:7px 12px; margin:0 2px 12px; }
-.sc-legend.compact .sc-legitem { font-size:12.5px; cursor:default; touch-action:auto; padding:0; margin:0; border:none; }
-.sc-legend.compact .sc-legitem:hover { background:none; border-color:transparent; }
+.sc-legend.compact .sc-legitem { font-size:12.5px; padding:2px 6px; margin:-2px -6px; }
+.sc-legend.compact .sc-legitem:hover { background:var(--tint); border-color:var(--line); }
 .sc-legend.compact .sc-legdot { width:9px; height:9px; }
 .sc-ctls { display:flex; gap:10px; margin:0 2px 16px; flex-wrap:wrap; }
 .sc-ctl { flex:1 1 150px; min-width:0; display:flex; flex-direction:column; gap:5px; }
@@ -271,6 +271,16 @@ function hashId(title, date, time) {
 function pad(n) { return String(n).padStart(2, "0"); }
 function ymd(y, m, d) { return `${y}-${pad(m + 1)}-${pad(d)}`; }
 function fmtLong(ds) { return new Date(ds + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }); }
+// "class" -> "classes", "quiz" -> "quizzes", "readings" stays put.
+function plural(label) {
+  const w = label.toLowerCase();
+  if (/[aeiou]z$/.test(w)) return w + "zes";            // quiz -> quizzes
+  if (/(ss|sh|ch|x|z)$/.test(w)) return w + "es";       // class -> classes
+  if (/s$/.test(w)) return w;                            // readings -> readings
+  if (/[^aeiou]y$/.test(w)) return w.slice(0, -1) + "ies"; // study -> studies
+  return w + "s";
+}
+
 function fmtShort(ds) { return new Date(ds + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }); }
 function fmtTime(t) { if (!t) return "All day"; let [h, m] = t.split(":").map(Number); const ap = h >= 12 ? "PM" : "AM"; h = h % 12 || 12; return `${h}:${pad(m)} ${ap}`; }
 function evColor(e) { return e.color || DEFAULT_TYPE_COLORS[e.type] || "#2F62F0"; }
@@ -719,8 +729,7 @@ export default function App() {
       .filter((c) => counts.has(c.key))
       .map((c) => {
         const k = counts.get(c.key);
-        const label = (c.label || "untitled").toLowerCase();
-        return `${k} ${k === 1 || /s$/.test(label) ? label : label + "s"}`;
+        return `${k} ${k === 1 ? (c.label || "untitled").toLowerCase() : plural(c.label || "untitled")}`;
       })
       .join(", ");
   })();
@@ -1002,7 +1011,18 @@ export default function App() {
             {draftCats.length > 0 && (
               <div className="sc-legend compact">
                 {draftCats.map((c) => (
-                  <span className="sc-legitem" key={c.key}><span className="sc-legdot" style={{ background: c.color }} />{c.label || "Untitled"}</span>
+                  <span
+                    className={`sc-legitem ${dragCat === c.key ? "dragging" : ""}`}
+                    key={c.key}
+                    data-catkey={c.key}
+                    onPointerDown={(e) => catPointerDown(e, c.key)}
+                    onPointerMove={catPointerMove}
+                    onPointerUp={(e) => catPointerUp(e, c.key)}
+                    onPointerCancel={() => { dragInfo.current = null; setDragCat(null); }}
+                    title="Tap to edit, drag to reorder"
+                  >
+                    <span className="sc-legdot" style={{ background: c.color }} />{c.label || "Untitled"}
+                  </span>
                 ))}
               </div>
             )}
