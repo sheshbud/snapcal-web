@@ -843,10 +843,10 @@ export default function App() {
           <div className="sc-modalcard sc-choose" onClick={(e) => e.stopPropagation()}>
             <h3>You're all set</h3>
             <p>{pending.length} {pending.length === 1 ? "date" : "dates"} ready. Where do you want them?</p>
-            {GOOGLE_CLIENT_ID && <button className="sc-btn" onClick={() => { const list = pending; setPending(null); startGoogleAdd(list); }}>Add to Google Calendar</button>}
-            {GOOGLE_CLIENT_ID && <div className="sc-chooselbl">Sends them straight to your Google Calendar.</div>}
-            <button className={GOOGLE_CLIENT_ID ? "sc-btn ghost" : "sc-btn"} onClick={chooserSend} style={{ marginTop: GOOGLE_CLIENT_ID ? 14 : 0 }}>Send to Apple, Outlook, or other</button>
+            <button className="sc-btn" onClick={chooserSend}>Send to Apple, Outlook, or other</button>
             <div className="sc-chooselbl">Downloads a calendar file you open once.</div>
+            {GOOGLE_CLIENT_ID && <button className="sc-btn ghost" onClick={() => { const list = pending; setPending(null); startGoogleAdd(list); }} style={{ marginTop: 14 }}>Add to Google Calendar</button>}
+            {GOOGLE_CLIENT_ID && <div className="sc-chooselbl">Sends them straight to your Google Calendar.</div>}
             <button className="sc-btn ghost" onClick={chooserKeep} style={{ marginTop: 14 }}>Just keep them in Sylla</button>
             <div className="sc-choosesub">No account needed, any option.</div>
           </div>
