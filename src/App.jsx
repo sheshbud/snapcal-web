@@ -1192,13 +1192,13 @@ export default function App() {
         <div className="sc-modal" onClick={() => setPasteOpen(false)}>
           <div className="sc-modalcard" onClick={(e) => e.stopPropagation()}>
             <h3>Paste your schedule</h3>
-            <p className="sc-hint" style={{ margin: "0 0 12px" }}>Paste the part of a syllabus or schedule that lists dates.</p>
+            <p className="sc-hint" style={{ margin: "0 0 12px" }}>Paste the syllabus or schedule that lists your dates and events.</p>
             <textarea
               className="sc-textarea"
               value={pasteVal}
               autoFocus
               onChange={(e) => setPasteVal(e.target.value.slice(0, 20000))}
-              placeholder={"Sep 12 - Essay 1 due\nOct 14, 10:00am - Midterm exam\nOct 16 - Reading: Chapter 5"}
+              placeholder="Paste the syllabus or schedule that lists your dates and events."
             />
             <div className="sc-modalactions">
               <button className="sc-btn ghost" onClick={() => setPasteOpen(false)}>Cancel</button>
