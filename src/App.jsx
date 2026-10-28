@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 
 const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Gelasio:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap');
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 .sc-root {
   --bg:#F7F9FD; --card:#FFFFFF; --tint:#EEF3FB; --line:#E5EBF6;
   --navy:#15306B; --ink:#2B374F; --soft:#6B7997;
-  --primary:#1E3A78; --marker:#C7DAFF;
+  --primary:#1E3A78; --marker:#C7DAFF; --accent:#C98A2B;
   font-family:'Inter',-apple-system,system-ui,sans-serif;
   background:radial-gradient(900px 320px at 50% -120px, #E7EFFC 0%, rgba(231,239,252,0) 70%), #F7F9FD;
   color:var(--ink); min-height:100vh; display:flex; justify-content:center; padding:24px 16px 96px;
@@ -15,13 +15,28 @@ const STYLES = `
 .sc-topbar { display:flex; align-items:center; gap:12px; margin:2px 2px 0; }
 .sc-menubtn { width:42px; height:42px; border-radius:13px; border:1px solid var(--line); background:var(--card); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--navy); box-shadow:0 2px 8px rgba(20,46,110,.05); }
 .sc-menubtn:hover { background:var(--tint); }
-.sc-topword { font-family:'Gelasio',Cambria,Georgia,serif; font-weight:700; font-size:30px; color:var(--navy); letter-spacing:-0.012em; }
+.sc-topword { font-family:'Fraunces',Georgia,serif; font-weight:700; font-size:30px; color:var(--navy); letter-spacing:-0.012em; }
 .hl { background:linear-gradient(180deg, transparent 58%, var(--marker) 58%); padding:0 .1em; border-radius:2px; -webkit-box-decoration-break:clone; box-decoration-break:clone; }
+.sy-hero { margin-top:30px; text-align:center; animation:syrise .5s ease both; }
+@keyframes syrise { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:none } }
+.sy-hl { font-family:'Fraunces',Georgia,serif; font-weight:600; font-size:35px; line-height:1.08; letter-spacing:-0.02em; color:var(--navy); margin:0 0 14px; }
+.sy-sub { color:var(--soft); font-size:15px; line-height:1.6; margin:0 auto 26px; max-width:330px; }
+.sy-preview { background:var(--card); border:1px solid var(--line); border-radius:20px; padding:15px 16px; box-shadow:0 20px 46px rgba(20,46,110,.13); text-align:left; margin:0 auto 24px; max-width:380px; }
+.sy-prev-top { display:flex; align-items:center; justify-content:space-between; padding-bottom:12px; border-bottom:1px solid var(--line); margin-bottom:6px; }
+.sy-prev-title { font-family:'Fraunces',Georgia,serif; font-weight:600; font-size:18px; color:var(--navy); }
+.sy-prev-tag { font-size:11px; font-weight:700; color:var(--accent); background:rgba(201,138,43,.13); padding:4px 10px; border-radius:999px; letter-spacing:.02em; }
+.sy-prev-row { display:flex; gap:11px; align-items:center; padding:10px 0; }
+.sy-prev-row + .sy-prev-row { border-top:1px solid var(--tint); }
+.sy-prev-bar { width:4px; align-self:stretch; min-height:32px; border-radius:3px; flex:none; }
+.sy-prev-name { font-weight:600; font-size:14.5px; color:var(--ink); }
+.sy-prev-meta { font-size:12px; color:var(--soft); margin-top:2px; font-variant-numeric:tabular-nums; }
+.sy-hero .sc-btn { max-width:380px; margin:0 auto; }
+.sy-hero .sc-reassure { margin-top:14px; }
 
 .sc-drop { margin-top:30px; background:var(--card); border:1px solid var(--line); border-radius:28px; padding:50px 26px; text-align:center; box-shadow:0 18px 44px rgba(20,46,110,.10); }
 .sc-iconwrap { width:82px; height:82px; margin:0 auto 24px; border-radius:24px; background:linear-gradient(150deg,#2A53A8,#15306B); display:flex; align-items:center; justify-content:center; box-shadow:0 14px 28px rgba(21,48,107,.30); }
 .sc-iconwrap svg { width:39px; height:39px; color:#fff; }
-.sc-drop h2 { font-family:'Gelasio',Cambria,Georgia,serif; font-weight:700; font-size:29px; letter-spacing:-0.008em; margin:0 0 11px; color:var(--navy); }
+.sc-drop h2 { font-family:'Fraunces',Georgia,serif; font-weight:700; font-size:29px; letter-spacing:-0.008em; margin:0 0 11px; color:var(--navy); }
 .sc-drop p { margin:0 0 28px; color:var(--soft); font-size:14.5px; line-height:1.6; }
 .sc-btn { width:100%; border:none; cursor:pointer; font-family:'Inter',sans-serif; font-weight:600; font-size:16px; border-radius:14px; padding:16px 18px; background:linear-gradient(150deg,#274C9E,#16306B); color:#fff; transition:filter .15s, transform .08s; box-shadow:0 10px 24px rgba(21,48,107,.26); }
 .sc-btn:hover { filter:brightness(1.08); }
@@ -36,11 +51,11 @@ const STYLES = `
 .sc-doc::before { content:""; position:absolute; left:16px; right:16px; top:20px; height:6px; border-radius:3px; background:#E6ECF8; box-shadow:0 16px 0 #E6ECF8,0 32px 0 #E6ECF8,0 48px 0 #E6ECF8,0 64px 0 #E6ECF8; }
 .sc-scanline { position:absolute; left:0; right:0; height:22px; background:linear-gradient(180deg, rgba(30,58,120,0) 0%, rgba(30,58,120,.22) 100%); border-bottom:2px solid var(--primary); animation:scan 1.25s ease-in-out infinite; }
 @keyframes scan { 0%{top:-22px} 100%{top:126px} }
-.sc-reading h2 { font-family:'Gelasio',Cambria,Georgia,serif; font-weight:700; font-size:22px; margin:0 0 5px; color:var(--navy); }
+.sc-reading h2 { font-family:'Fraunces',Georgia,serif; font-weight:700; font-size:22px; margin:0 0 5px; color:var(--navy); }
 .sc-reading p { color:var(--soft); font-size:14px; margin:0; }
 
 .sc-head { margin-top:24px; display:flex; align-items:flex-end; justify-content:space-between; }
-.sc-head h2 { font-family:'Gelasio',Cambria,Georgia,serif; font-weight:700; font-size:27px; letter-spacing:-0.008em; margin:0; color:var(--navy); }
+.sc-head h2 { font-family:'Fraunces',Georgia,serif; font-weight:700; font-size:27px; letter-spacing:-0.008em; margin:0; color:var(--navy); }
 .sc-count { font-family:'Inter',sans-serif; font-size:13px; color:var(--primary); font-weight:600; font-variant-numeric:tabular-nums; }
 .sc-hint { margin:9px 2px 14px; font-size:13.5px; color:var(--soft); line-height:1.55; }
 .sc-pickwrap { display:flex; align-items:center; gap:9px; margin:2px 2px 10px; font-size:13px; color:var(--soft); flex-wrap:wrap; }
@@ -64,11 +79,11 @@ const STYLES = `
 .sc-bar small { display:block; text-align:center; color:var(--soft); font-size:12px; margin-top:10px; }
 
 .sc-msg { margin-top:84px; text-align:center; }
-.sc-msg h2 { font-family:'Gelasio',Cambria,Georgia,serif; font-weight:700; font-size:23px; margin:0 0 9px; color:var(--navy); }
+.sc-msg h2 { font-family:'Fraunces',Georgia,serif; font-weight:700; font-size:23px; margin:0 0 9px; color:var(--navy); }
 .sc-msg p { color:var(--soft); font-size:14px; line-height:1.55; margin:0 0 24px; }
 
 .sc-caltop { display:flex; align-items:center; justify-content:space-between; margin-top:22px; }
-.sc-monthlabel { font-family:'Gelasio',Cambria,Georgia,serif; font-weight:700; font-size:25px; color:var(--navy); letter-spacing:-0.01em; }
+.sc-monthlabel { font-family:'Fraunces',Georgia,serif; font-weight:700; font-size:25px; color:var(--navy); letter-spacing:-0.01em; }
 .sc-navs { display:flex; gap:8px; align-items:center; }
 .sc-navbtn { width:38px; height:38px; border-radius:11px; border:1px solid var(--line); background:#fff; color:var(--navy); cursor:pointer; font-size:17px; display:flex; align-items:center; justify-content:center; }
 .sc-navbtn:hover { background:var(--tint); }
@@ -86,7 +101,7 @@ const STYLES = `
 .sc-dot { width:5px; height:5px; border-radius:50%; }
 .sc-day.sel .sc-dot { box-shadow:0 0 0 1.5px #fff; }
 
-.sc-agtitle { font-family:'Gelasio',Cambria,Georgia,serif; font-weight:600; font-size:18px; color:var(--navy); margin:24px 2px 11px; }
+.sc-agtitle { font-family:'Fraunces',Georgia,serif; font-weight:600; font-size:18px; color:var(--navy); margin:24px 2px 11px; }
 .sc-ev { display:flex; align-items:stretch; gap:11px; background:var(--card); border:1px solid var(--line); border-radius:13px; padding:11px 13px; margin-bottom:8px; width:100%; text-align:left; box-shadow:0 2px 8px rgba(20,46,110,.05); }
 .sc-ev.tap { cursor:pointer; }
 .sc-ev.tap:hover { border-color:#C7D4F0; box-shadow:0 4px 12px rgba(20,46,110,.10); }
@@ -100,7 +115,7 @@ const STYLES = `
 .sc-empty { text-align:center; color:var(--soft); font-size:13.5px; padding:16px 0; }
 .sc-emptybig { text-align:center; color:var(--soft); font-size:13.5px; line-height:1.55; padding:28px 14px; border:1px dashed var(--line); border-radius:16px; background:#fff; }
 
-.sc-section { font-family:'Gelasio',Cambria,Georgia,serif; font-weight:600; font-size:18px; color:var(--navy); margin:22px 2px 11px; }
+.sc-section { font-family:'Fraunces',Georgia,serif; font-weight:600; font-size:18px; color:var(--navy); margin:22px 2px 11px; }
 .sc-calrow { display:flex; align-items:center; gap:11px; background:var(--card); border:1px solid var(--line); border-radius:13px; padding:11px 13px; margin-bottom:8px; box-shadow:0 2px 8px rgba(20,46,110,.05); }
 .sc-calrow.hidden { opacity:.5; }
 .sc-swatch { width:14px; height:14px; border-radius:5px; flex:none; }
@@ -125,7 +140,7 @@ const STYLES = `
 .sc-addactions .sc-btn { font-size:14px; padding:11px; }
 .sc-grphead { display:flex; align-items:center; gap:9px; margin:18px 2px 10px; }
 .sc-grphead .sc-swatch { width:13px; height:13px; }
-.sc-grpname { font-family:'Gelasio',Cambria,Georgia,serif; font-weight:600; font-size:16px; color:var(--navy); }
+.sc-grpname { font-family:'Fraunces',Georgia,serif; font-weight:600; font-size:16px; color:var(--navy); }
 .sc-grpcount { font-size:12px; color:var(--soft); margin-left:auto; font-variant-numeric:tabular-nums; }
 
 .sc-tabbar { position:sticky; bottom:14px; margin-top:26px; background:rgba(255,255,255,.86); -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px); border:1px solid var(--line); border-radius:18px; padding:7px; display:flex; box-shadow:0 12px 30px rgba(20,46,110,.12); }
@@ -135,17 +150,17 @@ const STYLES = `
 
 .sc-overlay { position:fixed; inset:0; background:rgba(16,28,56,.34); z-index:40; display:flex; }
 .sc-sheet { width:284px; max-width:84%; background:#fff; height:100%; padding:24px 18px; display:flex; flex-direction:column; box-shadow:0 0 50px rgba(0,0,0,.22); }
-.sc-sheet h3 { font-family:'Gelasio',Cambria,Georgia,serif; font-weight:700; font-size:24px; color:var(--navy); margin:4px 2px 20px; }
+.sc-sheet h3 { font-family:'Fraunces',Georgia,serif; font-weight:700; font-size:24px; color:var(--navy); margin:4px 2px 20px; }
 .sc-menuitem { display:flex; align-items:center; gap:12px; width:100%; text-align:left; border:none; background:transparent; padding:14px 10px; border-radius:12px; font-family:'Inter'; font-weight:600; font-size:15px; color:var(--ink); cursor:pointer; }
 .sc-menuitem:hover { background:var(--tint); }
 .sc-menuitem svg { color:var(--primary); }
 .sc-help { margin-top:auto; border-top:1px solid var(--line); padding-top:18px; }
-.sc-help h4 { font-family:'Gelasio',Cambria,Georgia,serif; font-style:italic; font-weight:600; font-size:16px; color:var(--navy); margin:0 0 10px; }
+.sc-help h4 { font-family:'Fraunces',Georgia,serif; font-style:italic; font-weight:600; font-size:16px; color:var(--navy); margin:0 0 10px; }
 .sc-help p { font-size:12.5px; color:var(--soft); line-height:1.55; margin:0 0 8px; }
 
 .sc-modal { position:fixed; inset:0; background:rgba(16,28,56,.40); z-index:50; display:flex; align-items:flex-end; justify-content:center; }
 .sc-modalcard { width:100%; max-width:460px; background:#fff; border-radius:24px 24px 0 0; padding:24px 18px 28px; box-shadow:0 -14px 44px rgba(20,46,110,.22); max-height:90vh; overflow-y:auto; }
-.sc-modalcard h3 { font-family:'Gelasio',Cambria,Georgia,serif; font-weight:700; font-size:23px; color:var(--navy); margin:0 0 14px; }
+.sc-modalcard h3 { font-family:'Fraunces',Georgia,serif; font-weight:700; font-size:23px; color:var(--navy); margin:0 0 14px; }
 .sc-choose p { color:var(--soft); font-size:14px; line-height:1.5; margin:0 0 20px; }
 .sc-choose .sc-btn { margin-bottom:10px; }
 .sc-choosesub { text-align:center; font-size:11.5px; color:var(--soft); margin-top:4px; font-weight:500; }
@@ -225,7 +240,7 @@ function byDate(a, b) { return a.date === b.date ? (a.time || "99").localeCompar
 function nextDay(d) { const dt = new Date(d + "T00:00:00"); dt.setDate(dt.getDate() + 1); return dt.toISOString().slice(0, 10); }
 function buildICS(events) {
   const esc = (s) => (s || "").replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
-  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//SnapCal//EN", "CALSCALE:GREGORIAN"];
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Sylla//EN", "CALSCALE:GREGORIAN"];
   events.forEach((e, i) => {
     const v = e.date.replace(/-/g, "");
     lines.push("BEGIN:VEVENT", `UID:snapcal-${Date.now()}-${i}@snapcal.app`, `DTSTAMP:${TODAY.replace(/-/g, "")}T000000Z`);
@@ -585,23 +600,28 @@ export default function App() {
         {stage === "home" ? (
           <div className="sc-topbar">
             <button className="sc-menubtn" onClick={() => setMenuOpen(true)} aria-label="Menu"><MenuIcon /></button>
-            <span className="sc-topword"><span className="hl">Snap</span>Cal</span>
+            <span className="sc-topword"><span className="hl">Syl</span>la</span>
           </div>
         ) : (
-          <div className="sc-topbar"><span className="sc-topword"><span className="hl">Snap</span>Cal</span></div>
+          <div className="sc-topbar"><span className="sc-topword"><span className="hl">Syl</span>la</span></div>
         )}
 
         <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={onFile} style={{ display: "none" }} />
 
         {stage === "home" && tab === "snap" && (
           <>
-            <div className="sc-drop">
-              <div className="sc-iconwrap"><CamIcon /></div>
-              <h2>Snap or upload</h2>
-              <p>A syllabus, work schedule, lease, any document with dates. SnapCal pulls them out so you can confirm and add them.</p>
-              <button className="sc-btn" onClick={pick}>Choose a photo or PDF</button>
+            <div className="sy-hero">
+              <h1 className="sy-hl">Snap a schedule.<br />Get a calendar.</h1>
+              <p className="sy-sub">Point your camera at a syllabus, work schedule, or flyer. Every date is pulled out for you to confirm, in seconds.</p>
+              <div className="sy-preview" aria-hidden="true">
+                <div className="sy-prev-top"><span className="sy-prev-title">Course Calendar</span><span className="sy-prev-tag">27 dates</span></div>
+                <div className="sy-prev-row"><span className="sy-prev-bar" style={{ background: "#2F62F0" }} /><div><div className="sy-prev-name">Essay 1 due</div><div className="sy-prev-meta">Fri, Sep 12</div></div></div>
+                <div className="sy-prev-row"><span className="sy-prev-bar" style={{ background: "#D8364A" }} /><div><div className="sy-prev-name">Midterm exam</div><div className="sy-prev-meta">Tue, Oct 14 · 10:00 AM</div></div></div>
+                <div className="sy-prev-row"><span className="sy-prev-bar" style={{ background: "#198A5E" }} /><div><div className="sy-prev-name">Reading: Chapter 5</div><div className="sy-prev-meta">Thu, Oct 16</div></div></div>
+              </div>
+              <button className="sc-btn" onClick={pick}>Scan a schedule</button>
+              <div className="sc-reassure">You'll confirm every date before anything is added.</div>
             </div>
-            <div className="sc-reassure">After you snap, you'll see every date to confirm or edit before it's added.</div>
           </>
         )}
 
@@ -769,7 +789,7 @@ export default function App() {
         <div className="sc-modal" onClick={() => setConsentOpen(false)}>
           <div className="sc-modalcard sc-choose" onClick={(e) => e.stopPropagation()}>
             <h3>Before your first scan</h3>
-            <p>To read your schedule, SnapCal sends the photo to an AI service (Anthropic) that pulls out the dates. Your photo is used only to read it and is not stored. Dates stay on your device.</p>
+            <p>To read your schedule, Sylla sends the photo to an AI service (Anthropic) that pulls out the dates. Your photo is used only to read it and is not stored. Dates stay on your device.</p>
             <button className="sc-btn" onClick={acceptConsent}>I agree, continue</button>
             <button className="sc-btn ghost" onClick={() => setConsentOpen(false)} style={{ marginTop: 10 }}>Cancel</button>
             <div className="sc-choosesub">Read our <a href={import.meta.env.VITE_PRIVACY_URL || "/privacy.html"} target="_blank" rel="noreferrer" style={{ color: "var(--primary)", fontWeight: 600 }}>Privacy Policy</a>.</div>
@@ -782,7 +802,7 @@ export default function App() {
           <div className="sc-modalcard sc-choose" onClick={(e) => e.stopPropagation()}>
             <h3>You're all set</h3>
             <p>{pending.length} {pending.length === 1 ? "date" : "dates"} added. Where would you like to keep them?</p>
-            <button className="sc-btn" onClick={chooserKeep}>Keep them in SnapCal</button>
+            <button className="sc-btn" onClick={chooserKeep}>Keep them in Sylla</button>
             {GOOGLE_CLIENT_ID && <button className="sc-btn ghost" onClick={() => { const list = pending; setPending(null); startGoogleAdd(list); }}>Add to Google Calendar</button>}
             <button className="sc-btn ghost" onClick={chooserSend} style={{ marginTop: 10 }}>Send to my own calendar (.ics)</button>
             <div className="sc-choosesub">No account needed either way.</div>
@@ -793,7 +813,7 @@ export default function App() {
       {menuOpen && (
         <div className="sc-overlay" onClick={() => setMenuOpen(false)}>
           <div className="sc-sheet" onClick={(e) => e.stopPropagation()}>
-            <h3>SnapCal</h3>
+            <h3>Sylla</h3>
             <button className="sc-menuitem" onClick={() => { setMenuOpen(false); setTab("snap"); setStage("home"); }}><CamIcon style={{ width: 20, height: 20 }} /> Snap a schedule</button>
             <button className="sc-menuitem" onClick={() => { setMenuOpen(false); setTab("calendar"); setStage("home"); openNew(); }}><Pencil style={{ width: 20, height: 20 }} /> Add an event manually</button>
             <button className="sc-menuitem" onClick={() => { setMenuOpen(false); downloadICS(visEvents); }}><DownIcon /> Send all to my calendar (.ics)</button>
@@ -815,7 +835,7 @@ export default function App() {
               <h4>Help &amp; tips</h4>
               <p>Tap any event to rename it, change its color or date, or set a reminder, one at a time.</p>
               <p>Reminders ride along when you send events to your own calendar.</p>
-              <p>Keep events here in SnapCal or send them out. No account needed.</p>
+              <p>Keep events here in Sylla or send them out. No account needed.</p>
             </div>
           </div>
         </div>
