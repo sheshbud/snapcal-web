@@ -32,6 +32,10 @@ const STYLES = `
 .sy-prev-meta { font-size:12px; color:var(--soft); margin-top:2px; font-variant-numeric:tabular-nums; }
 .sy-hero .sc-btn { max-width:380px; margin:0 auto; }
 .sy-hero .sc-reassure { margin-top:14px; }
+.sy-hero { border-radius:24px; transition:outline-color .15s, background .15s; outline:2px dashed transparent; outline-offset:8px; }
+.sy-hero.drag { outline-color:var(--accent); background:rgba(154,123,79,.05); }
+.sy-drop-hint { display:none; text-align:center; font-size:12.5px; color:var(--soft); margin-top:10px; }
+@media (hover:hover) and (pointer:fine) { .sy-drop-hint { display:block; } }
 .sy-how { max-width:380px; margin:38px auto 0; display:flex; flex-direction:column; gap:20px; }
 .sy-how-step { display:flex; gap:14px; align-items:flex-start; text-align:left; }
 .sy-how-num { flex:none; width:30px; height:30px; border-radius:50%; background:var(--navy); color:#fff; font-family:'Fraunces',Georgia,serif; font-weight:600; font-size:15px; display:flex; align-items:center; justify-content:center; }
@@ -169,7 +173,8 @@ const STYLES = `
 .sc-modalcard h3 { font-family:'Fraunces',Georgia,serif; font-weight:700; font-size:23px; color:var(--navy); margin:0 0 14px; }
 .sc-choose p { color:var(--soft); font-size:14px; line-height:1.5; margin:0 0 20px; }
 .sc-choose .sc-btn { margin-bottom:10px; }
-.sc-choosesub { text-align:center; font-size:11.5px; color:var(--soft); margin-top:4px; font-weight:500; }
+.sc-choosesub { text-align:center; font-size:11.5px; color:var(--soft); margin-top:14px; font-weight:500; }
+.sc-chooselbl { text-align:center; font-size:11.5px; color:var(--soft); margin-top:6px; }
 .sc-flabel { font-size:12px; font-weight:600; color:var(--soft); margin:13px 2px 6px; display:block; letter-spacing:.03em; }
 .sc-finput { width:100%; border:1px solid var(--line); border-radius:11px; padding:12px; font-size:15px; font-family:'Inter'; color:var(--ink); outline:none; background:#fff; }
 .sc-finput:focus { border-color:var(--primary); }
@@ -324,6 +329,7 @@ export default function App() {
   const [gcalMsg, setGcalMsg] = useState("");
   const [idToken, setIdToken] = useState("");
   const [gUser, setGUser] = useState("");
+  const [dragOver, setDragOver] = useState(false);
   const gBtnRef = useRef(null);
   const [pending, setPending] = useState(null);
   const [suggestName, setSuggestName] = useState("");
@@ -437,10 +443,25 @@ export default function App() {
 
   async function onFile(ev) {
     const file = ev.target.files && ev.target.files[0];
+    if (file) processFile(file);
+  }
+  function onDrop(e) {
+    e.preventDefault(); setDragOver(false);
+    if (!consented) { setConsentOpen(true); return; }
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) processFile(f);
+  }
+  async function processFile(file) {
     if (!file) return;
+    const isPdf = file.type === "application/pdf";
+    const isImage = (file.type || "").startsWith("image/");
+    if (!isPdf && !isImage) {
+      setStage("error");
+      setErrMsg("That's not a photo or PDF. Drop an image or a PDF of your schedule.");
+      return;
+    }
     setStage("reading"); setErrMsg("");
     try {
-      const isPdf = file.type === "application/pdf";
       const data64 = isPdf ? (await fileToDataURL(file)).split(",")[1] : await shrinkImage(file);
       const SCAN_URL = import.meta.env.VITE_SCAN_URL || "/api/scan";
       let result = null, lastErr = null;
@@ -623,7 +644,7 @@ export default function App() {
 
         {stage === "home" && tab === "snap" && (
           <>
-            <div className="sy-hero">
+            <div className={`sy-hero ${dragOver ? "drag" : ""}`} onDrop={onDrop} onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={(e) => { e.preventDefault(); if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); }}>
               <h1 className="sy-hl">Snap a schedule.<br />Get a calendar.</h1>
               <p className="sy-sub">Point your camera at a syllabus, work schedule, or flyer. Every date is pulled out for you to confirm, in seconds.</p>
               <div className="sy-preview" aria-hidden="true">
@@ -633,6 +654,7 @@ export default function App() {
                 <div className="sy-prev-row"><span className="sy-prev-bar" style={{ background: "#198A5E" }} /><div><div className="sy-prev-name">Reading: Chapter 5</div><div className="sy-prev-meta">Thu, Oct 16</div></div></div>
               </div>
               <button className="sc-btn" onClick={pick}>Scan a schedule</button>
+              <div className="sy-drop-hint">or drag a photo or PDF here</div>
               <div className="sc-reassure">You'll confirm every date before anything is added.</div>
             </div>
             <div className="sy-how">
@@ -820,11 +842,13 @@ export default function App() {
         <div className="sc-modal" onClick={chooserKeep}>
           <div className="sc-modalcard sc-choose" onClick={(e) => e.stopPropagation()}>
             <h3>You're all set</h3>
-            <p>{pending.length} {pending.length === 1 ? "date" : "dates"} added. Where would you like to keep them?</p>
-            <button className="sc-btn" onClick={chooserKeep}>Keep them in Sylla</button>
-            {GOOGLE_CLIENT_ID && <button className="sc-btn ghost" onClick={() => { const list = pending; setPending(null); startGoogleAdd(list); }}>Add to Google Calendar</button>}
-            <button className="sc-btn ghost" onClick={chooserSend} style={{ marginTop: 10 }}>Send to my own calendar (.ics)</button>
-            <div className="sc-choosesub">No account needed either way.</div>
+            <p>{pending.length} {pending.length === 1 ? "date" : "dates"} ready. Where do you want them?</p>
+            {GOOGLE_CLIENT_ID && <button className="sc-btn" onClick={() => { const list = pending; setPending(null); startGoogleAdd(list); }}>Add to Google Calendar</button>}
+            {GOOGLE_CLIENT_ID && <div className="sc-chooselbl">Sends them straight to your Google Calendar.</div>}
+            <button className={GOOGLE_CLIENT_ID ? "sc-btn ghost" : "sc-btn"} onClick={chooserSend} style={{ marginTop: GOOGLE_CLIENT_ID ? 14 : 0 }}>Send to Apple, Outlook, or other</button>
+            <div className="sc-chooselbl">Downloads a calendar file you open once.</div>
+            <button className="sc-btn ghost" onClick={chooserKeep} style={{ marginTop: 14 }}>Just keep them in Sylla</button>
+            <div className="sc-choosesub">No account needed, any option.</div>
           </div>
         </div>
       )}
