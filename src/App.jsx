@@ -132,11 +132,11 @@ const STYLES = `
 .sc-legnote { font-size:12px; color:var(--soft); margin:9px 2px 0; }
 .sc-legitem { cursor:pointer; border:1px solid transparent; border-radius:9px; padding:3px 7px; margin:-3px -7px; transition:background .12s, border-color .12s; }
 .sc-legitem:hover { background:var(--tint); border-color:var(--line); }
+.sc-legitem { touch-action:none; user-select:none; -webkit-user-select:none; }
+.sc-legitem.dragging { opacity:.45; background:var(--tint); border-color:var(--accent); }
+.sc-legitem.dropping { border-color:var(--accent); background:rgba(154,123,79,.08); }
 .sc-legadd { display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:var(--primary); background:#fff; border:1px dashed #BCCBEC; border-radius:9px; padding:4px 10px; cursor:pointer; font-family:inherit; }
 .sc-legadd:hover { background:var(--tint); }
-.sc-catmove { display:flex; gap:8px; margin-top:4px; }
-.sc-catmove button { flex:1; border:1px solid var(--line); background:#fff; border-radius:10px; padding:9px; font-size:13px; font-weight:600; color:var(--ink); cursor:pointer; font-family:inherit; }
-.sc-catmove button:disabled { opacity:.4; cursor:default; }
 .sc-calrow { display:flex; align-items:center; gap:11px; background:var(--card); border:1px solid var(--line); border-radius:13px; padding:11px 13px; margin-bottom:8px; box-shadow:0 2px 8px rgba(120,92,52,.05); }
 .sc-calrow.hidden { opacity:.5; }
 .sc-swatch { width:14px; height:14px; border-radius:5px; flex:none; }
@@ -327,6 +327,8 @@ export default function App() {
   const [customColors, setCustomColors] = useState([]);
   const [categories, setCategories] = useState(seedCategories);
   const [catEdit, setCatEdit] = useState(null);
+  const [dragCat, setDragCat] = useState(null);
+  const dragInfo = useRef(null);
   const [draft, setDraft] = useState([]);
   const [targetCal, setTargetCal] = useState("c1");
   const [bulkRemind, setBulkRemind] = useState("1440");
@@ -639,17 +641,44 @@ export default function App() {
     setCategories((prev) => prev.filter((c) => c.key !== key));
     setCatEdit(null);
   }
-  function moveCat(key, dir) {
+  // Pointer-based reordering so it works with touch as well as a mouse.
+  function catPointerDown(e, key) {
+    dragInfo.current = { key, x: e.clientX, y: e.clientY, moved: false };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+  }
+  function catPointerMove(e) {
+    const info = dragInfo.current;
+    if (!info) return;
+    if (!info.moved) {
+      if (Math.abs(e.clientX - info.x) < 6 && Math.abs(e.clientY - info.y) < 6) return;
+      info.moved = true;
+      setDragCat(info.key);
+    }
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const chip = el && el.closest && el.closest("[data-catkey]");
+    const overKey = chip && chip.getAttribute("data-catkey");
+    if (!overKey || overKey === info.key) return;
     setCategories((prev) => {
-      const i = prev.findIndex((c) => c.key === key);
-      const j = i + dir;
-      if (i < 0 || j < 0 || j >= prev.length) return prev;
+      const from = prev.findIndex((c) => c.key === info.key);
+      const to = prev.findIndex((c) => c.key === overKey);
+      if (from < 0 || to < 0 || from === to) return prev;
       const copy = prev.slice();
-      const [it] = copy.splice(i, 1);
-      copy.splice(j, 0, it);
+      const [it] = copy.splice(from, 1);
+      copy.splice(to, 0, it);
       return copy;
     });
   }
+  function catPointerUp(e, key) {
+    const info = dragInfo.current;
+    dragInfo.current = null;
+    setDragCat(null);
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (err) {}
+    if (info && !info.moved) {
+      const c = categories.find((x) => x.key === key);
+      if (c) setCatEdit({ ...c });
+    }
+  }
+
   function addCat() {
     const key = "cat_" + Math.random().toString(36).slice(2, 9);
     setCatEdit({ key, label: "", color: CAL_COLORS[categories.length % CAL_COLORS.length], builtin: false, hidden: false, __new: true });
@@ -758,13 +787,22 @@ export default function App() {
             <div className="sc-section">Color key</div>
             <div className="sc-legend">
               {visibleCats.map((c) => (
-                <span className="sc-legitem" key={c.key} onClick={() => setCatEdit({ ...c })} title="Edit category">
+                <span
+                  className={`sc-legitem ${dragCat === c.key ? "dragging" : ""}`}
+                  key={c.key}
+                  data-catkey={c.key}
+                  onPointerDown={(e) => catPointerDown(e, c.key)}
+                  onPointerMove={catPointerMove}
+                  onPointerUp={(e) => catPointerUp(e, c.key)}
+                  onPointerCancel={() => { dragInfo.current = null; setDragCat(null); }}
+                  title="Tap to edit, drag to reorder"
+                >
                   <span className="sc-legdot" style={{ background: c.color }} />{c.label || "Untitled"}
                 </span>
               ))}
               <button className="sc-legadd" onClick={addCat}>+ Add category</button>
             </div>
-            <div className="sc-legnote">Default colors by type. Tap any event to recolor it.</div>
+            <div className="sc-legnote">Drag to reorder. Tap a category to rename or recolor it. Tap any event to recolor that one.</div>
             <div className="sc-section">Your calendars</div>
             {calendars.map((c) => {
               const count = events.filter((e) => e.calId === c.id).length;
@@ -960,12 +998,6 @@ export default function App() {
                 <label className="sc-colorbig" style={{ background: catEdit.color }}>
                   <input type="color" value={catEdit.color} onChange={(e) => setCatEdit({ ...catEdit, color: e.target.value })} />
                 </label>
-              </div>
-              <div><label className="sc-flabel">Order</label>
-                <div className="sc-catmove">
-                  <button onClick={() => moveCat(catEdit.key, -1)} disabled={catEdit.__new || categories.findIndex((c) => c.key === catEdit.key) <= 0}>Move up</button>
-                  <button onClick={() => moveCat(catEdit.key, 1)} disabled={catEdit.__new || categories.findIndex((c) => c.key === catEdit.key) === categories.length - 1}>Move down</button>
-                </div>
               </div>
             </div>
             {catEdit.builtin && (
