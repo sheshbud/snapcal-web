@@ -626,6 +626,14 @@ export default function App() {
   function updateDraft(i, key, val) { setDraft((p) => p.map((e, j) => (j === i ? { ...e, [key]: val } : e))); }
   function removeDraft(i) { setDraft((p) => p.filter((_, j) => j !== i)); }
   function setAllRemind(v) { setBulkRemind(v); setDraft((p) => p.map((e) => ({ ...e, remind: v }))); }
+  function addBulkRemind(v) {
+    const next = remindAdd(bulkRemind, v);
+    setBulkRemind(next); setDraft((p) => p.map((e) => ({ ...e, remind: next })));
+  }
+  function removeBulkRemind(v) {
+    const next = remindRemove(bulkRemind, v);
+    setBulkRemind(next); setDraft((p) => p.map((e) => ({ ...e, remind: next })));
+  }
 
   function commit() {
     let calId = targetCal, addCalObj = null;
@@ -1080,9 +1088,28 @@ export default function App() {
               </div>
               <div className="sc-ctl">
                 <label className="sc-ctllabel">Remind</label>
-                <select className="sc-pick" value={bulkRemind} onChange={(e) => setAllRemind(e.target.value)}>{REMINDERS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+                <select className="sc-pick" value="" onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "") return;
+                  if (v === "__none__") { setAllRemind(""); return; }
+                  addBulkRemind(v);
+                }}>
+                  <option value="">{remindList(bulkRemind).length ? "Add another" : "No reminder"}</option>
+                  {remindList(bulkRemind).length > 0 && <option value="__none__">Clear all</option>}
+                  {REMINDERS.filter(([v]) => v !== "" && !remindList(bulkRemind).includes(v)).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
               </div>
             </div>
+            {remindList(bulkRemind).length > 0 && (
+              <div className="sc-remchips" style={{ margin: "-6px 2px 14px" }}>
+                {remindList(bulkRemind).map((m) => (
+                  <span className="sc-remchip" key={m}>
+                    {(REMINDERS.find(([v]) => v === m) || [m, m + " min before"])[1]}
+                    <button onClick={() => removeBulkRemind(m)} aria-label="Remove reminder">×</button>
+                  </span>
+                ))}
+              </div>
+            )}
             {targetCal === "__new__" && (
               <div className="sc-ctls">
                 <div className="sc-ctl">
