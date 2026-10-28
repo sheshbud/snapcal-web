@@ -106,7 +106,7 @@ const STYLES = `
 .sc-msg p { color:var(--soft); font-size:14px; line-height:1.55; margin:0 0 24px; }
 
 .sc-caltop { display:flex; align-items:center; justify-content:space-between; margin-top:22px; }
-.sc-monthlabel { font-family:'Fraunces',Georgia,serif; font-weight:700; font-size:25px; color:var(--navy); letter-spacing:-0.01em; }
+.sc-monthlabel { font-family:'Inter',system-ui,sans-serif; font-weight:700; font-size:21px; color:var(--navy); letter-spacing:-0.02em; }
 .sc-navs { display:flex; gap:8px; align-items:center; }
 .sc-navbtn { width:38px; height:38px; border-radius:11px; border:1px solid var(--line); background:#fff; color:var(--navy); cursor:pointer; font-size:17px; display:flex; align-items:center; justify-content:center; }
 .sc-navbtn:hover { background:var(--tint); }
@@ -377,7 +377,7 @@ export default function App() {
     if (data && data.calendars && data.calendars.length) {
       setCalendars(data.calendars); setEvents(data.events || []); setTargetCal(data.calendars[0].id);
       if (data.customColors) setCustomColors(data.customColors);
-      if (data.categories && data.categories.length) setCategories(data.categories);
+      setCategories(data.categories && data.categories.length ? data.categories : seedCategories());
       if ((data.events || []).length) setTab("calendar");
     }
     if (data && data.updatedAt) localTs.current = data.updatedAt;
@@ -634,6 +634,10 @@ export default function App() {
   const upcoming = visEvents.filter((e) => e.date >= TODAY).sort(byDate).slice(0, 6);
   const cells = monthMatrix(cursor.y, cursor.m);
   const palette = [...CAL_COLORS, ...customColors];
+  useEffect(() => {
+    if (loaded && (!categories || categories.length === 0)) setCategories(seedCategories());
+  }, [loaded, categories]);
+
   const visibleCats = categories.filter((c) => !c.hidden);
   // Only key the colours actually on screen, so the legend stays short.
   const draftCats = (() => {
