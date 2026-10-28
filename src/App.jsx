@@ -225,10 +225,11 @@ const STYLES = `
 `;
 
 const DEFAULT_TYPE_COLORS = {
-  assignment:"#4A6FA5", exam:"#A8463C", quiz:"#B0792F", reading:"#5E7254",
-  project:"#6B5E8A", class:"#8A7C66", event:"#3F7A72", holiday:"#7E5A86", payment:"#9A7B4F", other:"#8A7C66",
+  assignment:"#4571AE", exam:"#A8463C", quiz:"#BC8730", reading:"#527D47",
+  project:"#6E5A9C", presentation:"#9B4F7E", class:"#8F7B55", event:"#277C83",
+  holiday:"#CB7187", payment:"#6B5230", other:"#818C96",
 };
-const TYPE_LABELS = { assignment:"Assignment", exam:"Exam / test", quiz:"Quiz", reading:"Reading", project:"Project", class:"Class", event:"Event", holiday:"Holiday", payment:"Payment", other:"Other" };
+const TYPE_LABELS = { assignment:"Assignment", exam:"Exam / test", quiz:"Quiz", reading:"Reading", project:"Project", presentation:"Presentation", class:"Class", event:"Event", holiday:"Holiday", payment:"Payment", other:"Other" };
 const TYPES = Object.keys(DEFAULT_TYPE_COLORS);
 const seedCategories = () => TYPES.map((k) => ({ key: k, label: TYPE_LABELS[k], color: DEFAULT_TYPE_COLORS[k], builtin: true, hidden: false }));
 const CAL_COLORS = ["#1E3A78","#2F62F0","#198A5E","#D8364A","#8A52C0","#C0820F","#0E8C93","#D8569E"];
@@ -408,7 +409,12 @@ export default function App() {
     if (data && data.calendars && data.calendars.length) {
       setCalendars(data.calendars); setEvents(data.events || []); setTargetCal(data.calendars[0].id);
       if (data.customColors) setCustomColors(data.customColors);
-      setCategories(data.categories && data.categories.length ? data.categories : seedCategories());
+      setCategories(() => {
+        const stored = data.categories && data.categories.length ? data.categories : seedCategories();
+        const have = new Set(stored.map((c) => c.key));
+        const added = seedCategories().filter((c) => !have.has(c.key));
+        return added.length ? [...stored, ...added] : stored;
+      });
       if ((data.events || []).length) setTab("calendar");
     }
     if (data && data.updatedAt) localTs.current = data.updatedAt;
