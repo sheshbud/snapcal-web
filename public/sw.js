@@ -2,7 +2,7 @@
 // Navigation/HTML is network-first so a new deploy reaches users immediately.
 // Hashed build assets are cache-first (Vite fingerprints them, so they are immutable).
 // API calls are never cached.
-const CACHE = "sylla-v3";
+const CACHE = "sylla-v4";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
