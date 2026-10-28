@@ -130,6 +130,13 @@ const STYLES = `
 .sc-legitem { display:inline-flex; align-items:center; gap:7px; font-size:13px; color:var(--ink); font-weight:500; }
 .sc-legdot { width:10px; height:10px; border-radius:50%; flex:none; }
 .sc-legnote { font-size:12px; color:var(--soft); margin:9px 2px 0; }
+.sc-legitem { cursor:pointer; border:1px solid transparent; border-radius:9px; padding:3px 7px; margin:-3px -7px; transition:background .12s, border-color .12s; }
+.sc-legitem:hover { background:var(--tint); border-color:var(--line); }
+.sc-legadd { display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:var(--primary); background:#fff; border:1px dashed #BCCBEC; border-radius:9px; padding:4px 10px; cursor:pointer; font-family:inherit; }
+.sc-legadd:hover { background:var(--tint); }
+.sc-catmove { display:flex; gap:8px; margin-top:4px; }
+.sc-catmove button { flex:1; border:1px solid var(--line); background:#fff; border-radius:10px; padding:9px; font-size:13px; font-weight:600; color:var(--ink); cursor:pointer; font-family:inherit; }
+.sc-catmove button:disabled { opacity:.4; cursor:default; }
 .sc-calrow { display:flex; align-items:center; gap:11px; background:var(--card); border:1px solid var(--line); border-radius:13px; padding:11px 13px; margin-bottom:8px; box-shadow:0 2px 8px rgba(120,92,52,.05); }
 .sc-calrow.hidden { opacity:.5; }
 .sc-swatch { width:14px; height:14px; border-radius:5px; flex:none; }
@@ -206,6 +213,7 @@ const DEFAULT_TYPE_COLORS = {
 };
 const TYPE_LABELS = { assignment:"Assignment", exam:"Exam / test", quiz:"Quiz", reading:"Reading", project:"Project", class:"Class", event:"Event", holiday:"Holiday", payment:"Payment", other:"Other" };
 const TYPES = Object.keys(DEFAULT_TYPE_COLORS);
+const seedCategories = () => TYPES.map((k) => ({ key: k, label: TYPE_LABELS[k], color: DEFAULT_TYPE_COLORS[k], builtin: true, hidden: false }));
 const CAL_COLORS = ["#1E3A78","#2F62F0","#198A5E","#D8364A","#8A52C0","#C0820F","#0E8C93","#D8569E"];
 const REMINDERS = [["", "No reminder"], ["0", "At time of event"], ["60", "1 hour before"], ["1440", "1 day before"], ["10080", "1 week before"]];
 const remindShort = (v) => ({ "0": "At time", "60": "1 hr", "1440": "1 day", "10080": "1 wk" }[v] || "");
@@ -317,6 +325,8 @@ export default function App() {
   const [calendars, setCalendars] = useState([{ id: "c1", name: "School", color: CAL_COLORS[0], visible: true }]);
   const [events, setEvents] = useState([]);
   const [customColors, setCustomColors] = useState([]);
+  const [categories, setCategories] = useState(seedCategories);
+  const [catEdit, setCatEdit] = useState(null);
   const [draft, setDraft] = useState([]);
   const [targetCal, setTargetCal] = useState("c1");
   const [bulkRemind, setBulkRemind] = useState("1440");
@@ -352,6 +362,7 @@ export default function App() {
     if (data && data.calendars && data.calendars.length) {
       setCalendars(data.calendars); setEvents(data.events || []); setTargetCal(data.calendars[0].id);
       if (data.customColors) setCustomColors(data.customColors);
+      if (data.categories && data.categories.length) setCategories(data.categories);
       if ((data.events || []).length) setTab("calendar");
     }
     if (data && data.updatedAt) localTs.current = data.updatedAt;
@@ -377,13 +388,15 @@ export default function App() {
         const serverHas = d && Array.isArray(d.calendars) && d.calendars.length;
         if (serverHas && serverTs >= localTs.current) {
           // Server is newer (or equal): adopt it.
-          setCalendars(d.calendars); setEvents(d.events || []); setCustomColors(d.customColors || []); setTargetCal(d.calendars[0].id);
+          setCalendars(d.calendars); setEvents(d.events || []); setCustomColors(d.customColors || []);
+          setCategories(d.categories && d.categories.length ? d.categories : seedCategories());
+          setTargetCal(d.calendars[0].id);
           if ((d.events || []).length) setTab("calendar");
           localTs.current = serverTs;
         } else {
           // Local is newer (offline edits) or server is empty: push local up so it isn't lost.
           const ts = localTs.current || Date.now(); localTs.current = ts;
-          fetch(EVENTS_URL, { method: "PUT", headers: { "Content-Type": "application/json", Authorization: "Bearer " + idToken }, body: JSON.stringify({ calendars, events, customColors, updatedAt: ts }) })
+          fetch(EVENTS_URL, { method: "PUT", headers: { "Content-Type": "application/json", Authorization: "Bearer " + idToken }, body: JSON.stringify({ calendars, events, customColors, categories, updatedAt: ts }) })
             .then((rr) => { if (rr.status === 401) signOut(); }).catch(() => {});
         }
       } catch (e) {}
@@ -393,14 +406,14 @@ export default function App() {
   useEffect(() => {
     if (!loaded) return;
     const ts = Date.now(); localTs.current = ts;
-    try { localStorage.setItem(STORE_KEY, JSON.stringify({ calendars, events, customColors, updatedAt: ts })); } catch (e) {}
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ calendars, events, customColors, categories, updatedAt: ts })); } catch (e) {}
     if (!EVENTS_URL || !idToken) return; // cloud sync only when signed in
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      fetch(EVENTS_URL, { method: "PUT", headers: { "Content-Type": "application/json", Authorization: "Bearer " + idToken }, body: JSON.stringify({ calendars, events, customColors, updatedAt: ts }) })
+      fetch(EVENTS_URL, { method: "PUT", headers: { "Content-Type": "application/json", Authorization: "Bearer " + idToken }, body: JSON.stringify({ calendars, events, customColors, categories, updatedAt: ts }) })
         .then((r) => { if (r.status === 401) signOut(); }).catch(() => {});
     }, 800);
-  }, [calendars, events, customColors, loaded, idToken]);
+  }, [calendars, events, customColors, categories, loaded, idToken]);
 
   function parseJwt(t) { try { return JSON.parse(atob(t.split(".")[1])); } catch (e) { return null; } }
   function tokenValid(t) { const p = parseJwt(t); return !!(p && p.exp && p.exp * 1000 > Date.now() + 5000); }
@@ -487,7 +500,8 @@ export default function App() {
         const type = TYPES.includes(o.type) ? o.type : "other";
         let time = o.time || "";
         if (!/^\d{2}:\d{2}$/.test(time)) time = "";
-        return { title: o.title || "Untitled", date: o.date || "", time, type, color: DEFAULT_TYPE_COLORS[type], notes: "", remind: bulkRemind, on: true };
+        const catHit = categories.find((c) => c.key === type);
+        return { title: o.title || "Untitled", date: o.date || "", time, type, color: (catHit && catHit.color) || DEFAULT_TYPE_COLORS[type], notes: "", remind: bulkRemind, on: true };
       }).filter((e) => /^\d{4}-\d{2}-\d{2}$/.test(e.date));
       if (!cleaned.length) { setStage("error"); setErrMsg("No dates found in that document. Try a clearer photo, or a page that actually lists due dates."); return; }
       setDraft(cleaned); setSuggestName(calName); setTargetCal(calName ? "__new__" : calendars[0].id); setStage("review");
@@ -605,6 +619,32 @@ export default function App() {
   const upcoming = visEvents.filter((e) => e.date >= TODAY).sort(byDate).slice(0, 6);
   const cells = monthMatrix(cursor.y, cursor.m);
   const palette = [...CAL_COLORS, ...customColors];
+  const visibleCats = categories.filter((c) => !c.hidden);
+
+  function saveCat(next) {
+    setCategories((prev) => (prev.some((c) => c.key === next.key) ? prev.map((c) => (c.key === next.key ? next : c)) : [...prev, next]));
+    setCatEdit(null);
+  }
+  function deleteCat(key) {
+    setCategories((prev) => prev.filter((c) => c.key !== key));
+    setCatEdit(null);
+  }
+  function moveCat(key, dir) {
+    setCategories((prev) => {
+      const i = prev.findIndex((c) => c.key === key);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= prev.length) return prev;
+      const copy = prev.slice();
+      const [it] = copy.splice(i, 1);
+      copy.splice(j, 0, it);
+      return copy;
+    });
+  }
+  function addCat() {
+    const key = "cat_" + Math.random().toString(36).slice(2, 9);
+    setCatEdit({ key, label: "", color: CAL_COLORS[categories.length % CAL_COLORS.length], builtin: false, hidden: false, __new: true });
+  }
+
 
   function prevMonth() { setCursor((c) => (c.m === 0 ? { y: c.y - 1, m: 11 } : { y: c.y, m: c.m - 1 })); }
   function nextMonth() { setCursor((c) => (c.m === 11 ? { y: c.y + 1, m: 0 } : { y: c.y, m: c.m + 1 })); }
@@ -707,9 +747,12 @@ export default function App() {
           <>
             <div className="sc-section">Color key</div>
             <div className="sc-legend">
-              {TYPES.map((t) => (
-                <span className="sc-legitem" key={t}><span className="sc-legdot" style={{ background: DEFAULT_TYPE_COLORS[t] }} />{TYPE_LABELS[t]}</span>
+              {visibleCats.map((c) => (
+                <span className="sc-legitem" key={c.key} onClick={() => setCatEdit({ ...c })} title="Edit category">
+                  <span className="sc-legdot" style={{ background: c.color }} />{c.label || "Untitled"}
+                </span>
               ))}
+              <button className="sc-legadd" onClick={addCat}>+ Add category</button>
             </div>
             <div className="sc-legnote">Default colors by type. Tap any event to recolor it.</div>
             <div className="sc-section">Your calendars</div>
@@ -895,6 +938,44 @@ export default function App() {
         </div>
       )}
 
+      {catEdit && (
+        <div className="sc-modal" onClick={() => setCatEdit(null)}>
+          <div className="sc-modalcard" onClick={(e) => e.stopPropagation()}>
+            <h3>{catEdit.__new ? "New category" : "Edit category"}</h3>
+            <label className="sc-flabel">Name</label>
+            <input className="sc-finput" value={catEdit.label} placeholder="e.g. Lab, Shift, Rent"
+              onChange={(e) => setCatEdit({ ...catEdit, label: e.target.value })} />
+            <div className="sc-frow">
+              <div><label className="sc-flabel">Color</label>
+                <label className="sc-colorbig" style={{ background: catEdit.color }}>
+                  <input type="color" value={catEdit.color} onChange={(e) => setCatEdit({ ...catEdit, color: e.target.value })} />
+                </label>
+              </div>
+              <div><label className="sc-flabel">Order</label>
+                <div className="sc-catmove">
+                  <button onClick={() => moveCat(catEdit.key, -1)} disabled={catEdit.__new || categories.findIndex((c) => c.key === catEdit.key) <= 0}>Move up</button>
+                  <button onClick={() => moveCat(catEdit.key, 1)} disabled={catEdit.__new || categories.findIndex((c) => c.key === catEdit.key) === categories.length - 1}>Move down</button>
+                </div>
+              </div>
+            </div>
+            {catEdit.builtin && (
+              <>
+                <label className="sc-flabel">Show in color key</label>
+                <select className="sc-finput" value={catEdit.hidden ? "hidden" : "shown"}
+                  onChange={(e) => setCatEdit({ ...catEdit, hidden: e.target.value === "hidden" })}>
+                  <option value="shown">Shown</option>
+                  <option value="hidden">Hidden</option>
+                </select>
+              </>
+            )}
+            <div className="sc-modalactions">
+              {!catEdit.builtin && <button className="sc-delbtn" onClick={() => deleteCat(catEdit.key)}>Delete</button>}
+              <button className="sc-btn" onClick={() => saveCat({ ...catEdit, label: (catEdit.label || "").trim() || "Untitled", __new: undefined })}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editing && (
         <div className="sc-modal" onClick={() => setEditing(null)}>
           <div className="sc-modalcard" onClick={(e) => e.stopPropagation()}>
@@ -909,6 +990,10 @@ export default function App() {
               <div><label className="sc-flabel">Color</label><label className="sc-colorbig" style={{ background: editing.color }}><input type="color" value={editing.color} onChange={(e) => setEditing({ ...editing, color: e.target.value })} /></label></div>
               <div><label className="sc-flabel">Calendar</label><select className="sc-finput" value={editing.calId} onChange={(e) => setEditing({ ...editing, calId: e.target.value })}>{calendars.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
             </div>
+            <label className="sc-flabel">Type</label>
+            <select className="sc-finput" value={editing.type || "other"} onChange={(e) => setEditing({ ...editing, type: e.target.value })}>
+              {visibleCats.map((c) => <option key={c.key} value={c.key}>{c.label || "Untitled"}</option>)}
+            </select>
             <label className="sc-flabel">Reminder</label>
             <select className="sc-finput" value={editing.remind || ""} onChange={(e) => setEditing({ ...editing, remind: e.target.value })}>{REMINDERS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
             <div className="sc-modalactions">
