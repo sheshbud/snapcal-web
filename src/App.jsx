@@ -66,7 +66,9 @@ const STYLES = `
 
 .sc-head { margin-top:24px; display:flex; align-items:flex-end; justify-content:space-between; }
 .sc-head h2 { font-family:'Fraunces',Georgia,serif; font-weight:700; font-size:27px; letter-spacing:-0.008em; margin:0; color:var(--navy); }
-.sc-count { font-family:'Inter',sans-serif; font-size:13px; color:var(--primary); font-weight:600; font-variant-numeric:tabular-nums; }
+.sc-count { font-family:'Inter',sans-serif; font-size:13px; color:var(--primary); font-weight:600; font-variant-numeric:tabular-nums; display:flex; align-items:baseline; gap:10px; }
+.sc-selall { background:none; border:none; padding:0; font-family:inherit; font-size:12.5px; font-weight:600; color:var(--accent); cursor:pointer; text-decoration:underline; text-underline-offset:3px; white-space:nowrap; }
+.sc-selall:hover { color:var(--navy); }
 .sc-hint { margin:9px 2px 14px; font-size:13.5px; color:var(--soft); line-height:1.55; }
 .sc-pickwrap { display:flex; align-items:center; gap:9px; margin:2px 2px 10px; font-size:13px; color:var(--soft); flex-wrap:wrap; }
 .sc-legend.compact { padding:10px 12px; gap:7px 12px; margin:0 2px 12px; }
@@ -1056,7 +1058,14 @@ export default function App() {
           <>
             <div className="sc-head">
               <h2>Confirm your dates</h2>
-              <span className="sc-count">{onCount}/{draft.length} selected</span>
+              <span className="sc-count">
+                {onCount}/{draft.length} selected
+                {draft.length > 0 && (
+                  <button className="sc-selall" onClick={() => { const all = onCount === draft.length; setDraft((p) => p.map((e) => ({ ...e, on: !all }))); }}>
+                    {onCount === draft.length ? "Deselect all" : "Select all"}
+                  </button>
+                )}
+              </span>
             </div>
             <p className="sc-hint" style={{ margin: "7px 2px 12px" }}>Check the dates, fix anything, then add.</p>
             {draftSummary && <div className="sc-tally">Found {draftSummary}.</div>}
