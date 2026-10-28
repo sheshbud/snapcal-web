@@ -78,6 +78,10 @@ const STYLES = `
 .sc-ctl .sc-pick, .sc-ctl input.sc-pick { width:100%; box-sizing:border-box; }
 .sc-ctllabel { font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--soft); }
 .sc-tally { font-size:13px; color:var(--ink); font-weight:600; margin:0 2px 10px; }
+.sy-pastelink { display:block; margin:11px auto 0; background:none; border:none; font-family:inherit; font-size:13.5px; font-weight:600; color:var(--primary); cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+.sy-pastelink:hover { color:var(--navy); }
+.sc-textarea { width:100%; box-sizing:border-box; min-height:190px; resize:vertical; border:1px solid var(--line); border-radius:11px; padding:12px; font-family:'Inter',system-ui,sans-serif; font-size:16px; line-height:1.5; color:var(--ink); background:#fff; outline:none; }
+.sc-textarea:focus { border-color:var(--primary); }
 /* iOS zooms any focused input under 16px, which shoves the layout. */
 @media (max-width: 520px) {
   .sc-field, .sc-finput, .sc-pick, .sc-title { font-size:16px; }
@@ -341,6 +345,9 @@ export default function App() {
   const [categories, setCategories] = useState(seedCategories);
   const [catEdit, setCatEdit] = useState(null);
   const [dragCat, setDragCat] = useState(null);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteVal, setPasteVal] = useState("");
+  const consentIntent = useRef("scan");
   const dragInfo = useRef(null);
   const [draft, setDraft] = useState([]);
   const [targetCal, setTargetCal] = useState("c1");
@@ -464,12 +471,13 @@ export default function App() {
     } catch (e) { return "anon"; }
   }
   function pick() {
-    if (!consented) { setConsentOpen(true); return; }
+    if (!consented) { consentIntent.current = "scan"; setConsentOpen(true); return; }
     fileRef.current && fileRef.current.click();
   }
   function acceptConsent() {
     try { localStorage.setItem("snapcal:consent", "1"); } catch (e) {}
     setConsented(true); setConsentOpen(false);
+    if (consentIntent.current === "paste") { setPasteOpen(true); return; }
     setTimeout(() => fileRef.current && fileRef.current.click(), 0);
   }
 
@@ -483,25 +491,17 @@ export default function App() {
     const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
     if (f) processFile(f);
   }
-  async function processFile(file) {
-    if (!file) return;
-    const isPdf = file.type === "application/pdf";
-    const isImage = (file.type || "").startsWith("image/");
-    if (!isPdf && !isImage) {
-      setStage("error");
-      setErrMsg("That's not a photo or PDF. Drop an image or a PDF of your schedule.");
-      return;
-    }
+  // Shared by the photo/PDF path and the pasted-text path.
+  async function runScan(payload, emptyMsg, failMsg) {
     setStage("reading"); setErrMsg("");
     try {
-      const data64 = isPdf ? (await fileToDataURL(file)).split(",")[1] : await shrinkImage(file);
       const SCAN_URL = import.meta.env.VITE_SCAN_URL || "/api/scan";
       let result = null, lastErr = null;
       for (let attempt = 0; attempt < 2 && !result; attempt++) {
         try {
           const headers = { "Content-Type": "application/json", "x-snapcal-device": deviceId() };
           if (import.meta.env.VITE_APP_KEY) headers["x-snapcal-key"] = import.meta.env.VITE_APP_KEY;
-          const resp = await fetch(SCAN_URL, { method: "POST", headers, body: JSON.stringify({ image: data64, mediaType: isPdf ? "application/pdf" : "image/jpeg", isPdf }) });
+          const resp = await fetch(SCAN_URL, { method: "POST", headers, body: JSON.stringify(payload) });
           let d;
           try { d = await resp.json(); } catch (e3) { throw new Error("Invalid response format"); }
           if (d && d.error) throw new Error(d.error);
@@ -518,7 +518,7 @@ export default function App() {
         const catHit = categories.find((c) => c.key === type);
         return { title: o.title || "Untitled", date: o.date || "", time, type, color: (catHit && catHit.color) || DEFAULT_TYPE_COLORS[type], notes: "", remind: bulkRemind, on: true };
       }).filter((e) => /^\d{4}-\d{2}-\d{2}$/.test(e.date));
-      if (!cleaned.length) { setStage("error"); setErrMsg("No dates found in that document. Try a clearer photo, or a page that actually lists due dates."); return; }
+      if (!cleaned.length) { setStage("error"); setErrMsg(emptyMsg); return; }
       setDraft(cleaned); setSuggestName(calName); setTargetCal(calName ? "__new__" : calendars[0].id); setStage("review");
     } catch (e) {
       const m = (e && e.message) || "";
@@ -526,9 +526,57 @@ export default function App() {
       setStage("error");
       setErrMsg(conn
         ? "The scanner couldn't be reached. Check your connection, or add dates by hand below."
-        : "Couldn't read that file. A clear screenshot or PDF of the schedule page works best." + (m ? " (" + m + ")" : ""));
+        : failMsg + (m ? " (" + m + ")" : ""));
     } finally { if (fileRef.current) fileRef.current.value = ""; }
   }
+
+  function submitPaste() {
+    const t = (pasteVal || "").trim();
+    if (!t) return;
+    setPasteOpen(false);
+    runScan({ text: t },
+      "No dates found in that text. Paste a section that actually lists dates.",
+      "Couldn't read that text.");
+  }
+
+  async function processFile(file) {
+    if (!file) return;
+    const name = (file.name || "").toLowerCase();
+    const isPdf = file.type === "application/pdf";
+    const isImage = (file.type || "").startsWith("image/");
+    const isTextFile = file.type === "text/plain" || /\.(txt|md|markdown)$/.test(name);
+    if (!isPdf && !isImage && !isTextFile) {
+      setStage("error");
+      setErrMsg("That's not a photo, PDF, or text file. Drop an image, a PDF, or a .txt of your schedule.");
+      return;
+    }
+    if (isTextFile) {
+      let txt = "";
+      try { txt = await file.text(); } catch (e) { txt = ""; }
+      if (!txt.trim()) {
+        setStage("error"); setErrMsg("That file looks empty.");
+        if (fileRef.current) fileRef.current.value = "";
+        return;
+      }
+      return runScan({ text: txt.trim().slice(0, 20000) },
+        "No dates found in that file. Try one that actually lists dates.",
+        "Couldn't read that file.");
+    }
+    setStage("reading"); setErrMsg("");
+    let data64;
+    try {
+      data64 = isPdf ? (await fileToDataURL(file)).split(",")[1] : await shrinkImage(file);
+    } catch (e) {
+      setStage("error");
+      setErrMsg("Couldn't read that file. A clear screenshot or PDF of the schedule page works best.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+    return runScan({ image: data64, mediaType: isPdf ? "application/pdf" : "image/jpeg", isPdf },
+      "No dates found in that document. Try a clearer photo, or a page that actually lists due dates.",
+      "Couldn't read that file. A clear screenshot or PDF of the schedule page works best.");
+  }
+
 
   function updateDraft(i, key, val) { setDraft((p) => p.map((e, j) => (j === i ? { ...e, [key]: val } : e))); }
   function removeDraft(i) { setDraft((p) => p.filter((_, j) => j !== i)); }
@@ -637,6 +685,23 @@ export default function App() {
   useEffect(() => {
     if (loaded && (!categories || categories.length === 0)) setCategories(seedCategories());
   }, [loaded, categories]);
+
+  // Hero preview: the user's own next few dates once they have any,
+  // otherwise the illustrative sample.
+  const heroPreview = (() => {
+    if (!events.length) return null;
+    const soon = events
+      .filter((e) => e.date >= TODAY)
+      .sort((a, b) => (a.date === b.date ? (a.time || "").localeCompare(b.time || "") : a.date.localeCompare(b.date)));
+    const list = (soon.length ? soon : events.slice().sort((a, b) => b.date.localeCompare(a.date))).slice(0, 3);
+    const cal = calendars.find((c) => c.id === list[0].calId);
+    return {
+      title: (cal && cal.name) || "Your calendar",
+      count: events.length,
+      upcoming: soon.length,
+      rows: list,
+    };
+  })();
 
   const visibleCats = categories.filter((c) => !c.hidden);
   // Only key the colours actually on screen, so the legend stays short.
@@ -767,14 +832,36 @@ export default function App() {
             <div className={`sy-hero ${dragOver ? "drag" : ""}`} onDrop={onDrop} onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={(e) => { e.preventDefault(); if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); }}>
               <h1 className="sy-hl">Snap a schedule.<br />Get a calendar.</h1>
               <p className="sy-sub">Point your camera at a syllabus, work schedule, or flyer. Every date is pulled out for you to confirm, in seconds.</p>
-              <div className="sy-preview" aria-hidden="true">
-                <div className="sy-prev-top"><span className="sy-prev-title">Course Calendar</span><span className="sy-prev-tag">27 dates</span></div>
-                <div className="sy-prev-row"><span className="sy-prev-bar" style={{ background: "#2F62F0" }} /><div><div className="sy-prev-name">Essay 1 due</div><div className="sy-prev-meta">Fri, Sep 12</div></div></div>
-                <div className="sy-prev-row"><span className="sy-prev-bar" style={{ background: "#D8364A" }} /><div><div className="sy-prev-name">Midterm exam</div><div className="sy-prev-meta">Tue, Oct 14 · 10:00 AM</div></div></div>
-                <div className="sy-prev-row"><span className="sy-prev-bar" style={{ background: "#198A5E" }} /><div><div className="sy-prev-name">Reading: Chapter 5</div><div className="sy-prev-meta">Thu, Oct 16</div></div></div>
-              </div>
+              {heroPreview ? (
+                <div className="sy-preview">
+                  <div className="sy-prev-top">
+                    <span className="sy-prev-title">{heroPreview.title}</span>
+                    <span className="sy-prev-tag">{heroPreview.count} {heroPreview.count === 1 ? "date" : "dates"}</span>
+                  </div>
+                  {heroPreview.rows.map((e) => (
+                    <div className="sy-prev-row" key={e.id}>
+                      <span className="sy-prev-bar" style={{ background: evColor(e) }} />
+                      <div>
+                        <div className="sy-prev-name">{e.title}</div>
+                        <div className="sy-prev-meta">{fmtShort(e.date)}{e.time ? " \u00b7 " + fmtTime(e.time) : ""}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="sy-preview" aria-hidden="true">
+                  <div className="sy-prev-top"><span className="sy-prev-title">Course Calendar</span><span className="sy-prev-tag">Example</span></div>
+                  <div className="sy-prev-row"><span className="sy-prev-bar" style={{ background: "#2F62F0" }} /><div><div className="sy-prev-name">Essay 1 due</div><div className="sy-prev-meta">Fri, Sep 12</div></div></div>
+                  <div className="sy-prev-row"><span className="sy-prev-bar" style={{ background: "#D8364A" }} /><div><div className="sy-prev-name">Midterm exam</div><div className="sy-prev-meta">Tue, Oct 14 \u00b7 10:00 AM</div></div></div>
+                  <div className="sy-prev-row"><span className="sy-prev-bar" style={{ background: "#198A5E" }} /><div><div className="sy-prev-name">Reading: Chapter 5</div><div className="sy-prev-meta">Thu, Oct 16</div></div></div>
+                </div>
+              )}
               <button className="sc-btn" onClick={pick}>Scan a schedule</button>
-              <div className="sy-drop-hint">or drag a photo or PDF here</div>
+              <button className="sy-pastelink" onClick={() => {
+                if (!consented) { consentIntent.current = "paste"; setConsentOpen(true); return; }
+                setPasteOpen(true);
+              }}>Paste text instead</button>
+              <div className="sy-drop-hint">or drag a photo, PDF, or .txt here</div>
               <div className="sc-reassure">You'll confirm every date before anything is added.</div>
             </div>
             <div className="sy-how">
@@ -1032,6 +1119,26 @@ export default function App() {
               <p>Tap any event to rename it, change its color or date, or set a reminder, one at a time.</p>
               <p>Reminders ride along when you send events to your own calendar.</p>
               <p>Keep events here in Sylla or send them out. No account needed.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pasteOpen && (
+        <div className="sc-modal" onClick={() => setPasteOpen(false)}>
+          <div className="sc-modalcard" onClick={(e) => e.stopPropagation()}>
+            <h3>Paste your schedule</h3>
+            <p className="sc-hint" style={{ margin: "0 0 12px" }}>Paste the part of a syllabus or schedule that lists dates.</p>
+            <textarea
+              className="sc-textarea"
+              value={pasteVal}
+              autoFocus
+              onChange={(e) => setPasteVal(e.target.value.slice(0, 20000))}
+              placeholder={"Sep 12 - Essay 1 due\nOct 14, 10:00am - Midterm exam\nOct 16 - Reading: Chapter 5"}
+            />
+            <div className="sc-modalactions">
+              <button className="sc-btn ghost" onClick={() => setPasteOpen(false)}>Cancel</button>
+              <button className="sc-btn" onClick={submitPaste} disabled={!pasteVal.trim()}>Pull out the dates</button>
             </div>
           </div>
         </div>
