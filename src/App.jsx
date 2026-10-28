@@ -77,6 +77,10 @@ const STYLES = `
 .sc-ctl { flex:1 1 150px; min-width:0; display:flex; flex-direction:column; gap:5px; }
 .sc-ctl .sc-pick, .sc-ctl input.sc-pick { width:100%; box-sizing:border-box; }
 .sc-ctllabel { font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--soft); }
+.sc-remchips { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 9px; }
+.sc-remchip { display:inline-flex; align-items:center; gap:6px; background:var(--tint); border:1px solid var(--line); border-radius:9px; padding:5px 8px 5px 10px; font-size:12.5px; font-weight:600; color:var(--ink); }
+.sc-remchip button { border:none; background:none; cursor:pointer; font-size:15px; line-height:1; color:var(--soft); padding:0 2px; font-family:inherit; }
+.sc-remchip button:hover { color:var(--ink); }
 .sc-tally { font-size:13px; color:var(--ink); font-weight:600; margin:0 2px 10px; }
 .sy-pastelink { display:block; margin:11px auto 0; background:none; border:none; font-family:inherit; font-size:13.5px; font-weight:600; color:var(--primary); cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
 .sy-pastelink:hover { color:var(--navy); }
@@ -240,6 +244,14 @@ const REMINDERS = [
   ["1440", "1 day before"], ["2880", "2 days before"], ["4320", "3 days before"],
   ["10080", "1 week before"], ["20160", "2 weeks before"],
 ];
+// "remind" holds one or more minute values, e.g. "10,60,1440".
+const remindList = (v) => String(v || "").split(",").map((x) => x.trim()).filter((x) => x !== "" && !Number.isNaN(Number(x)));
+const remindAdd = (v, add) => {
+  const set = new Set(remindList(v));
+  set.add(String(add));
+  return [...set].map(Number).sort((a, b) => a - b).join(",");
+};
+const remindRemove = (v, rm) => remindList(v).filter((x) => x !== String(rm)).join(",");
 const remindShort = (v) => {
   const m = Number(v);
   if (v === "" || v === null || v === undefined || Number.isNaN(m)) return "";
@@ -320,7 +332,9 @@ function buildICS(events) {
     else lines.push(`DTSTART:${v}T${e.time.replace(":", "")}00`);
     lines.push(`SUMMARY:${esc(e.title)}`);
     if (e.notes) lines.push(`DESCRIPTION:${esc(e.notes)}`);
-    if (e.remind) lines.push("BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${esc(e.title)}`, `TRIGGER:-PT${e.remind}M`, "END:VALARM");
+    remindList(e.remind).forEach((m) => {
+      lines.push("BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${esc(e.title)}`, `TRIGGER:-PT${m}M`, "END:VALARM");
+    });
     lines.push("END:VEVENT");
   });
   lines.push("END:VCALENDAR");
@@ -839,7 +853,9 @@ export default function App() {
           <div className="sc-evmeta">
             <span className="sc-evtype" style={{ background: color + "1A", color }}>{e.type}</span>
             <span>{fmtShort(e.date)} · {fmtTime(e.time)}</span>
-            {e.remind && <span className="sc-bell"><Bell /> {remindShort(e.remind)}</span>}
+            {remindList(e.remind).length > 0 && (
+              <span className="sc-bell"><Bell /> {remindShort(remindList(e.remind)[0])}{remindList(e.remind).length > 1 ? ` +${remindList(e.remind).length - 1}` : ""}</span>
+            )}
             {c && <span>· {c.name}</span>}
           </div>
         </div>
@@ -889,7 +905,7 @@ export default function App() {
                 <div className="sy-preview" aria-hidden="true">
                   <div className="sy-prev-top"><span className="sy-prev-title">Course Calendar</span><span className="sy-prev-tag">Example</span></div>
                   <div className="sy-prev-row"><span className="sy-prev-bar" style={{ background: "#2F62F0" }} /><div><div className="sy-prev-name">Essay 1 due</div><div className="sy-prev-meta">Fri, Sep 12</div></div></div>
-                  <div className="sy-prev-row"><span className="sy-prev-bar" style={{ background: "#D8364A" }} /><div><div className="sy-prev-name">Midterm exam</div><div className="sy-prev-meta">Tue, Oct 14 \u00b7 10:00 AM</div></div></div>
+                  <div className="sy-prev-row"><span className="sy-prev-bar" style={{ background: "#D8364A" }} /><div><div className="sy-prev-name">Midterm exam</div><div className="sy-prev-meta">Tue, Oct 14 · 10:00 AM</div></div></div>
                   <div className="sy-prev-row"><span className="sy-prev-bar" style={{ background: "#198A5E" }} /><div><div className="sy-prev-name">Reading: Chapter 5</div><div className="sy-prev-meta">Thu, Oct 16</div></div></div>
                 </div>
               )}
@@ -1254,7 +1270,26 @@ export default function App() {
               {visibleCats.map((c) => <option key={c.key} value={c.key}>{c.label || "Untitled"}</option>)}
             </select>
             <label className="sc-flabel">Reminder</label>
-            <select className="sc-finput" value={editing.remind || ""} onChange={(e) => setEditing({ ...editing, remind: e.target.value })}>{REMINDERS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+            {remindList(editing.remind).length > 0 && (
+              <div className="sc-remchips">
+                {remindList(editing.remind).map((m) => (
+                  <span className="sc-remchip" key={m}>
+                    {(REMINDERS.find(([v]) => v === m) || [m, m + " min before"])[1]}
+                    <button onClick={() => setEditing({ ...editing, remind: remindRemove(editing.remind, m) })} aria-label="Remove reminder">×</button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <select className="sc-finput" value="" onChange={(e) => {
+              const v = e.target.value;
+              if (v === "") return;
+              if (v === "__none__") { setEditing({ ...editing, remind: "" }); return; }
+              setEditing({ ...editing, remind: remindAdd(editing.remind, v) });
+            }}>
+              <option value="">{remindList(editing.remind).length ? "Add another reminder" : "No reminder"}</option>
+              {remindList(editing.remind).length > 0 && <option value="__none__">Clear all reminders</option>}
+              {REMINDERS.filter(([v]) => v !== "" && !remindList(editing.remind).includes(v)).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
             <div className="sc-modalactions">
               {!editing.__new && <button className="sc-delbtn" onClick={deleteEvent}>Delete</button>}
               <button className="sc-btn" onClick={saveEdit}>{editing.__new ? "Add event" : "Save changes"}</button>
