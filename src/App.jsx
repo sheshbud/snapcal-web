@@ -74,6 +74,9 @@ const STYLES = `
 .sc-legend.compact { padding:10px 12px; gap:7px 12px; margin:0 2px 12px; }
 .sc-legend.compact .sc-legitem { font-size:12.5px; padding:2px 6px; margin:-2px -6px; }
 .sc-legend.compact .sc-legitem:hover { background:var(--tint); border-color:var(--line); }
+.sc-legitem.sel-none { opacity:.42; }
+.sc-legitem.sel-some { opacity:.72; }
+.sc-legitem.sel-all { opacity:1; }
 .sc-legend.compact .sc-legdot { width:9px; height:9px; }
 .sc-ctls { display:flex; gap:10px; margin:0 2px 16px; flex-wrap:wrap; }
 .sc-ctl { flex:1 1 150px; min-width:0; display:flex; flex-direction:column; gap:5px; }
@@ -394,6 +397,7 @@ export default function App() {
   const [pasteVal, setPasteVal] = useState("");
   const consentIntent = useRef("scan");
   const dragInfo = useRef(null);
+  const longPress = useRef(null);
   const [draft, setDraft] = useState([]);
   const [targetCal, setTargetCal] = useState("c1");
   const [bulkRemind, setBulkRemind] = useState("1440");
@@ -780,6 +784,18 @@ export default function App() {
     const seen = new Set(draft.map((d) => d.type));
     return categories.filter((c) => seen.has(c.key));
   })();
+  // Selection state of a type on the confirm screen: all / some / none.
+  function typeState(key) {
+    const rows = draft.filter((d) => d.type === key);
+    if (!rows.length) return "none";
+    const on = rows.filter((d) => d.on).length;
+    return on === 0 ? "none" : on === rows.length ? "all" : "some";
+  }
+  function toggleType(key) {
+    const next = typeState(key) !== "all";
+    setDraft((p) => p.map((e) => (e.type === key ? { ...e, on: next } : e)));
+  }
+
   // "12 assignments, 6 readings, 4 exams" so the count is checkable at a glance.
   const draftSummary = (() => {
     const on = draft.filter((d) => d.on);
@@ -814,9 +830,18 @@ export default function App() {
     setCatEdit(null);
   }
   // Pointer-based reordering so it works with touch as well as a mouse.
-  function catPointerDown(e, key) {
-    dragInfo.current = { key, x: e.clientX, y: e.clientY, moved: false };
+  function catPointerDown(e, key, mode = "edit") {
+    dragInfo.current = { key, x: e.clientX, y: e.clientY, moved: false, mode, longPressed: false };
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+    if (mode === "filter") {
+      const cat = categories.find((c) => c.key === key);
+      longPress.current = setTimeout(() => {
+        if (dragInfo.current && !dragInfo.current.moved) {
+          dragInfo.current.longPressed = true;
+          if (cat) setCatEdit({ ...cat });
+        }
+      }, 500);
+    }
   }
   function catPointerMove(e) {
     const info = dragInfo.current;
@@ -824,6 +849,7 @@ export default function App() {
     if (!info.moved) {
       if (Math.abs(e.clientX - info.x) < 6 && Math.abs(e.clientY - info.y) < 6) return;
       info.moved = true;
+      clearTimeout(longPress.current);
       setDragCat(info.key);
     }
     const el = document.elementFromPoint(e.clientX, e.clientY);
@@ -844,11 +870,12 @@ export default function App() {
     const info = dragInfo.current;
     dragInfo.current = null;
     setDragCat(null);
+    clearTimeout(longPress.current);
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (err) {}
-    if (info && !info.moved) {
-      const c = categories.find((x) => x.key === key);
-      if (c) setCatEdit({ ...c });
-    }
+    if (!info || info.moved || info.longPressed) return;
+    if (info.mode === "filter") { toggleType(key); return; }
+    const c = categories.find((x) => x.key === key);
+    if (c) setCatEdit({ ...c });
   }
 
   function addCat() {
@@ -1081,20 +1108,26 @@ export default function App() {
             {draftSummary && <div className="sc-tally">Found {draftSummary}.</div>}
             {draftCats.length > 0 && (
               <div className="sc-legend compact">
-                {draftCats.map((c) => (
-                  <span
-                    className={`sc-legitem ${dragCat === c.key ? "dragging" : ""}`}
-                    key={c.key}
-                    data-catkey={c.key}
-                    onPointerDown={(e) => catPointerDown(e, c.key)}
-                    onPointerMove={catPointerMove}
-                    onPointerUp={(e) => catPointerUp(e, c.key)}
-                    onPointerCancel={() => { dragInfo.current = null; setDragCat(null); }}
-                    title="Tap to edit, drag to reorder"
-                  >
-                    <span className="sc-legdot" style={{ background: c.color }} />{c.label || "Untitled"}
-                  </span>
-                ))}
+                {draftCats.map((c) => {
+                  const st = typeState(c.key);
+                  return (
+                    <span
+                      className={`sc-legitem sel-${st} ${dragCat === c.key ? "dragging" : ""}`}
+                      key={c.key}
+                      data-catkey={c.key}
+                      role="checkbox"
+                      aria-checked={st === "all" ? "true" : st === "some" ? "mixed" : "false"}
+                      onPointerDown={(e) => catPointerDown(e, c.key, "filter")}
+                      onPointerMove={catPointerMove}
+                      onPointerUp={(e) => catPointerUp(e, c.key)}
+                      onPointerCancel={() => { dragInfo.current = null; clearTimeout(longPress.current); setDragCat(null); }}
+                      title="Tap to select or deselect this type, hold to edit, drag to reorder"
+                    >
+                      <span className="sc-legdot" style={{ background: st === "none" ? "transparent" : c.color, boxShadow: st === "none" ? `inset 0 0 0 2px ${c.color}` : "none" }} />
+                      {c.label || "Untitled"}
+                    </span>
+                  );
+                })}
               </div>
             )}
             <div className="sc-ctls">
